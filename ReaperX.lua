@@ -1,4 +1,4 @@
-local PlaceId = game.PlaceId
+local PlaceId = game.PlaceId --release
 local LobbyId = 16146832113
 local ZombieId = 16277809958
 local Players = game:GetService("Players")
