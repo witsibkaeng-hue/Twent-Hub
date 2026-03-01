@@ -1,4 +1,4 @@
-local PlaceId = game.PlaceId --release
+local PlaceId = game.PlaceId
 local LobbyId = 16146832113
 local ZombieId = 16277809958
 local Players = game:GetService("Players")
@@ -10,9 +10,9 @@ local Config = {
     AutoCreate = true,
     AutoStart = true,
     AutoPlayZombies = true,
-    AutoUpgrade = true,       -- เปิดใช้ระบบ Auto Upgrade ของเกม 
-    AutoPriority = true,      -- เปลี่ยนเป้าหมายโจมตีอัตโนมัติ 
-    AutoSkill = true,         -- ใช้สกิลเฉพาะตัว (Koguro, Trash Gamer, Lich King) [cite: 2, 3]
+    AutoUpgrade = true,
+    AutoPriority = true,
+    AutoSkill = true,
     MysteryBoxSpam = true,
     AutoBuyModifiers = true
 }
@@ -30,7 +30,6 @@ local Progress = {
     LichSpellsConfirmed = false
 }
 
--- [ ฐานข้อมูลตัวละคร ] [cite: 1]
 local UnitDatabase = {
     ["Trash Gamer (Twin Blades)"] = "366:Evolved",
     ["Rabbit Hero (Guts)"] = "364:Evolved",
@@ -44,7 +43,6 @@ local UnitDatabase = {
     ["Koguro (Unsealed)"] = 235
 }
 
--- [ รายการ Modifiers ] [cite: 1, 2]
 local ModifiersToBuy = {
     "FortuneCity",
     "FastHands",
@@ -68,9 +66,40 @@ if PlaceId == LobbyId then
 end
 
 ---------------------------------------------------------------------------
--- [2] โหลด Fluent UI
+-- [2] โหลด Fluent UI แบบ Safe Load (แก้ปัญหา attempt to call a nil value)
 ---------------------------------------------------------------------------
-local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
+local function LoadUI()
+    local success, result = pcall(function()
+        return game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua")
+    end)
+
+    if not success or type(result) ~= "string" then
+        warn("โหลด UI ไม่สำเร็จ เน็ตอาจจะมีปัญหา: " .. tostring(result))
+        return nil
+    end
+
+    local uiFunc, loadErr = loadstring(result)
+    if type(uiFunc) ~= "function" then
+        warn("โหลด UI มาแล้วแต่รันไม่ได้: " .. tostring(loadErr))
+        return nil
+    end
+
+    return uiFunc()
+end
+
+local Fluent = LoadUI()
+
+-- ถ้าโหลด UI ไม่ติด ให้หยุดการทำงานสคริปต์ไปเลยเพื่อป้องกัน Error ซ้อน
+if not Fluent then
+    -- แจ้งเตือนแบบบ้านๆ แทน
+    game.StarterGui:SetCore("SendNotification", {
+        Title = "REAPER-X ERROR",
+        Text = "โหลด UI ไม่สำเร็จ กรุณาเช็คอินเทอร์เน็ตหรือรันสคริปต์ใหม่ครับ",
+        Duration = 10
+    })
+    return
+end
+
 local Window = Fluent:CreateWindow({
     Title = "REAPER-X | V21.0 OMNI-AUTOMATA", SubTitle = "Ultimate Edition",
     TabWidth = 160, Size = UDim2.fromOffset(580, 460), Acrylic = true, Theme = "Dark", MinimizeKey = Enum.KeyCode.RightControl
@@ -82,7 +111,7 @@ Tabs.Main:AddToggle("AutoUp", {Title = "In-Game Auto Upgrade", Default = true })
 Tabs.Main:AddToggle("AutoSkill", {Title = "Auto Use Unit Skills", Default = true }):OnChanged(function(v) Config.AutoSkill = v end)
 Tabs.Main:AddToggle("SpamBox", {Title = "Spam Mystery Box & Place", Default = true }):OnChanged(function(v) Config.MysteryBoxSpam = v end)
 
-Fluent:Notify({ Title = "REAPER-X ULTIMATE", Content = "โหลดข้อมูล Unit & สกิลครบถ้วน!", Duration = 5 })
+Fluent:Notify({ Title = "REAPER-X ULTIMATE", Content = "ระบบพร้อมทำงาน!", Duration = 5 })
 
 ---------------------------------------------------------------------------
 -- [3] Helper Functions
@@ -123,10 +152,10 @@ local function GetAllMyUnitUIDs()
 end
 
 ---------------------------------------------------------------------------
--- [4] Background Tasks (Auto Upgrade, Priority, Skills & Defense)
+-- [4] Background Tasks
 ---------------------------------------------------------------------------
 task.spawn(function()
-    local KoguroDomains = {"Fire", "Ice", "Sand"} [cite: 2]
+    local KoguroDomains = {"Fire", "Ice", "Sand"}
     local domainIndex = 1
 
     while task.wait(3) do
@@ -134,49 +163,36 @@ task.spawn(function()
         local uids = GetAllMyUnitUIDs()
 
         for _, uid in pairs(uids) do
-            -- 1. Auto Upgrade (ใช้ระบบของเกม) 
             if Config.AutoUpgrade then
-                pcall(function() Networking.Units.AutoUpgradeEvent:FireServer("Toggle", uid) end) [cite: 2]
+                pcall(function() Networking.Units.AutoUpgradeEvent:FireServer("Toggle", uid) end)
             end
-
-            -- 2. Auto Priority 
             if Config.AutoPriority then
-                pcall(function() Networking.UnitEvent:FireServer("ChangePriority", uid, "Bosses") end) [cite: 2]
+                pcall(function() Networking.UnitEvent:FireServer("ChangePriority", uid, "Bosses") end)
             end
-
-            -- 3. Auto Skills (ยิงดักไว้ ถ้าไม่ใช่ตัวของมัน เซิร์ฟเวอร์จะปฏิเสธเอง ไม่พัง) [cite: 2, 3]
             if Config.AutoSkill then
                 pcall(function()
-                    -- Koguro Domain (สลับ Fire > Ice > Sand) 
-                    Networking.Units["Update 6.5"].Koguro_DomainEvent:FireServer("ActivateDomain", KoguroDomains[domainIndex], uid) [cite: 2]
-                    
-                    -- Trash Gamer (สวมใส่สกิล) 
-                    Networking.Units["Update 10.5"].EquipSkill:FireServer(uid, "Primary", 3) [cite: 2]
-                    Networking.Units["Update 10.5"].EquipSkill:FireServer(uid, "Secondary", 3) [cite: 2]
-                    
-                    -- Lich King (เปิด The Goal of All Life is Death ตอนเวฟบอส) 
+                    Networking.Units["Update 6.5"].Koguro_DomainEvent:FireServer("ActivateDomain", KoguroDomains[domainIndex], uid)
+                    Networking.Units["Update 10.5"].EquipSkill:FireServer(uid, "Primary", 3)
+                    Networking.Units["Update 10.5"].EquipSkill:FireServer(uid, "Secondary", 3)
                     if GetWave() % 10 == 0 then
-                        Networking.AbilityEvent:FireServer("Activate", uid, "The Goal of All Life is Death") [cite: 3]
+                        Networking.AbilityEvent:FireServer("Activate", uid, "The Goal of All Life is Death")
                     end
                 end)
             end
             task.wait(0.1)
         end
         
-        -- สลับโดเมน Koguro รอบถัดไป
         domainIndex = domainIndex >= 3 and 1 or domainIndex + 1
 
-        -- เซ็ตเวทมนตร์ให้ Lich King (รันครั้งเดียวพอ) 
         if Config.AutoSkill and not Progress.LichSpellsConfirmed then
             pcall(function()
-                Networking.Units["Update 9.5"].ConfirmLichSpells:FireServer({{8, 13, 2, 17}}) [cite: 3]
+                Networking.Units["Update 9.5"].ConfirmLichSpells:FireServer({{8, 13, 2, 17}})
                 Progress.LichSpellsConfirmed = true
             end)
         end
     end
 end)
 
--- Barricade & Booster Monitor Loop
 task.spawn(function()
     while task.wait(3) do
         local wave = GetWave()
@@ -217,12 +233,10 @@ task.spawn(function()
         local money = GetMoney()
 
         if currentWave > 0 and currentWave < 10 and not Progress.FirstRabbitPlaced then
-            Fluent:Notify({Title = "Standby", Content = "รอรีเซ็ตเวฟ...", Duration = 3})
             task.wait(10)
             continue
         end
 
-        -- [ เวฟ 0 ]
         if currentWave == 0 and not Progress.FirstRabbitPlaced then
             TeleportTo(workspace.Map.Interactions.UnitShrine_RabbitHero["1"].Position); task.wait(1)
             Interact(workspace.Map.Interactions.UnitShrine_RabbitHero["1"].ProximityPrompt); task.wait(1)
@@ -231,7 +245,6 @@ task.spawn(function()
             Networking.SkipWaveEvent:FireServer("Skip"); task.wait(3)
         end
 
-        -- [ ต้นเกม: ตั้งบอร์ด ]
         if currentWave >= 1 and currentWave < 20 then
             if Progress.SprintwagonsPlaced < 3 then
                 TeleportTo(workspace.Map.Interactions.UnitShrine_Sprintwagon["1"].Position); task.wait(0.5)
@@ -259,7 +272,6 @@ task.spawn(function()
             end
         end
 
-        -- [ กลางเกม: ซื้อ Lane, บัพ, และสุ่มตู้ ]
         if currentWave >= 20 and currentWave < 149 then
             if not Progress.Lane2Bought and money >= 5000 then
                 TeleportTo(workspace.Map.Interactions.PurchaseLane2.Part.Position); task.wait(1)
@@ -269,17 +281,15 @@ task.spawn(function()
                 Interact(workspace.Map.Interactions.PurchaseLane3.Part.ProximityPrompt); Progress.Lane3Bought = true
             end
 
-            -- Auto Buy Modifiers [cite: 1, 2]
             if Config.AutoBuyModifiers and Progress.Lane3Bought and not Progress.ModifiersBought and money >= 60000 then
                 for _, modId in ipairs(ModifiersToBuy) do
-                    local args = { "Purchase", { ModifierId = modId } } [cite: 1]
-                    Networking.WinterZombies.ModifierMachineEvent:FireServer(unpack(args)) [cite: 1]
+                    local args = { "Purchase", { ModifierId = modId } }
+                    Networking.WinterZombies.ModifierMachineEvent:FireServer(unpack(args))
                     task.wait(0.5)
                 end
                 Progress.ModifiersBought = true
             end
 
-            -- Auto Mystery Box & Auto Place
             if Config.MysteryBoxSpam and Progress.Lane3Bought and money >= 10000 then
                 TeleportTo(workspace.Map.Interactions.MysteryBox1.CrateBottom.Position); task.wait(1)
                 Interact(workspace.Map.Interactions.MysteryBox1.CrateBottom.default.ProximityPrompt); task.wait(3)
@@ -289,7 +299,6 @@ task.spawn(function()
                         local slot = LocalPlayer.PlayerGui.Hotbar.Main.Units[tostring(i)]
                         if slot and slot.UnitTemplate.Container.Holder.Main:FindFirstChild("UnitName") then
                             local unitName = slot.UnitTemplate.Container.Holder.Main.UnitName.Text
-                            -- ป้องกันไม่ให้วาง Ice Queen เพื่อเก็บพาสซีฟบัพดาเมจให้ทีม
                             if unitName == "IceQueen(Release)" then continue end 
                             
                             if UnitDatabase[unitName] and unitName ~= "Sprintwagon" and unitName ~= "Takaroda" and unitName ~= "Rabbit Hero (Guts)" then
@@ -303,7 +312,6 @@ task.spawn(function()
             end
         end
 
-        -- [ เวฟ 149 - 150 ]
         if currentWave == 149 and not Progress.LateGameDoorsBought then
             pcall(function()
                 TeleportTo(workspace.Map.Interactions.PurchaseLane4.Part.Position); task.wait(1); Interact(workspace.Map.Interactions.PurchaseLane4.Part.ProximityPrompt)
