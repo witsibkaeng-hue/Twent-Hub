@@ -379,7 +379,7 @@ task.spawn(function()
                 Interact(workspace.Map.Interactions.PurchaseLane3.Part.ProximityPrompt); Progress.Lane3Bought = true
             end
 
-            if Config.AutoBuyModifiers and Progress.Lane3Bought and not Progress.ModifiersBought and money >= 60000 then
+            if Config.AutoBuyModifiers and Progress.Lane3Bought and not Progress.ModifiersBought and money >= 50000 then
                 for _, modId in ipairs(ModifiersToBuy) do
                     local args = { "Purchase", { ModifierId = modId } }
                     Networking.WinterZombies.ModifierMachineEvent:FireServer(unpack(args))
