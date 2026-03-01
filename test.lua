@@ -189,27 +189,27 @@ local function Interact(prompt)
     if prompt and prompt:IsA("ProximityPrompt") then fireproximityprompt(prompt, 1) end
 end
 
--- [ อัปเดต ] เปลี่ยนจาก Teleport เป็นการเดิน (Walk) ป้องกันโดนแบน
-local function WalkTo(pos, maxWaitTime)
-    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+local TweenService = game:GetService("TweenService")
+
+local function TweenTo(pos)
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
         local hrp = LocalPlayer.Character.HumanoidRootPart
-        local hum = LocalPlayer.Character.Humanoid
+        local distance = (hrp.Position - pos).Magnitude
         
-        -- ถ้าระยะห่างมากกว่า 5 หน่วย ให้เดินไป
-        if (hrp.Position - pos).Magnitude > 5 then
-            hum:MoveTo(pos)
+        -- ถ้าระยะห่างมากกว่า 5 หน่วย ค่อย Tween
+        if distance > 5 then
+            -- [ หัวใจสำคัญ: คำนวณเวลาให้เนียน ]
+            -- สมมติให้ความเร็ว = 30 หน่วยต่อวินาที (เร็วกว่าเดินปกตินิดหน่อยแต่ไม่เว่อร์)
+            local speed = 30 
+            local timeToTake = distance / speed
             
-            local timeout = 0
-            maxWaitTime = maxWaitTime or 8 -- ให้เวลาเดินสูงสุด 8 วินาที กันเดินติดกำแพง
+            -- สร้างรูปแบบการ Tween (ให้เคลื่อนที่ด้วยความเร็วคงที่ Linear)
+            local tweenInfo = TweenInfo.new(timeToTake, Enum.EasingStyle.Linear)
+            local tween = TweenService:Create(hrp, tweenInfo, {CFrame = CFrame.new(pos)})
             
-            while (hrp.Position - pos).Magnitude > 5 and timeout < maxWaitTime do
-                task.wait(0.2)
-                timeout = timeout + 0.2
-            end
-            
-            -- ถึงเป้าหมาย (หรือหมดเวลา) ให้หยุดเดิน
-            hum:MoveTo(hrp.Position) 
-            task.wait(0.5) -- หน่วงนิดนึงให้ตัวละครยืนนิ่งก่อนกดปุ่ม
+            tween:Play()
+            tween.Completed:Wait() -- รอจนกว่าตัวละครจะสไลด์ไปถึงเป้าหมาย
+            task.wait(0.2)
         end
     end
 end
@@ -324,7 +324,7 @@ task.spawn(function()
                 for i = 1, 3 do
                     local prompt = workspace.Map.Interactions["Barricade"..i].default.ProximityPrompt
                     if string.find(prompt.ObjectText, "0/5") then
-                        WalkTo(workspace.Map.Interactions["Barricade"..i].default.Position, 5)
+                        TweenTo(workspace.Map.Interactions["Barricade"..i].default.Position)
                         Interact(prompt)
                         task.wait(5) 
                     end
@@ -336,7 +336,7 @@ task.spawn(function()
             pcall(function()
                 local trapPrompt = workspace.Map.Interactions.Trap2.Part.ProximityPrompt
                 if string.find(trapPrompt.ObjectText, "ACTIVE") then
-                    WalkTo(workspace.Map.Interactions.Trap2.Part.Position, 5)
+                    TweenTo(workspace.Map.Interactions.Trap2.Part.Position)
                     Interact(trapPrompt)
                     task.wait(1)
                 end
@@ -375,7 +375,7 @@ task.spawn(function()
         end
 
         if currentWave == 0 and not Progress.FirstRabbitPlaced then
-            WalkTo(workspace.Map.Interactions.UnitShrine_RabbitHero["1"].Position)
+            TweenTo(workspace.Map.Interactions.UnitShrine_RabbitHero["1"].Position)
             Interact(workspace.Map.Interactions.UnitShrine_RabbitHero["1"].ProximityPrompt)
             task.wait(1)
 
@@ -392,7 +392,7 @@ task.spawn(function()
 
         if currentWave >= 1 and currentWave < 20 then
             if Progress.SprintwagonsPlaced < 3 and money >= 1000 then
-                WalkTo(workspace.Map.Interactions.UnitShrine_Sprintwagon["1"].Position)
+                TweenTo(workspace.Map.Interactions.UnitShrine_Sprintwagon["1"].Position)
                 Interact(workspace.Map.Interactions.UnitShrine_Sprintwagon["1"].ProximityPrompt); task.wait(1)
 
                 if money >= 550 then
@@ -403,7 +403,7 @@ task.spawn(function()
                     if #workspace.Units:GetChildren() > unitsBefore then Progress.SprintwagonsPlaced = index end
                 end
             elseif Progress.RabbitsPlaced < 3 and money >= 500 then
-                WalkTo(workspace.Map.Interactions.UnitShrine_RabbitHero["1"].Position)
+                TweenTo(workspace.Map.Interactions.UnitShrine_RabbitHero["1"].Position)
                 Interact(workspace.Map.Interactions.UnitShrine_RabbitHero["1"].ProximityPrompt); task.wait(1)
 
                 if money >= 1200 then
@@ -416,7 +416,7 @@ task.spawn(function()
             elseif not Progress.SprintwagonsMaxed then
                 if money > 8000 then Progress.SprintwagonsMaxed = true end
             elseif Progress.TakarodaPlaced < 1 then
-                WalkTo(workspace.Map.Interactions.UnitShrine_Takaroda["1"].Position)
+                TweenTo(workspace.Map.Interactions.UnitShrine_Takaroda["1"].Position)
                 Interact(workspace.Map.Interactions.UnitShrine_Takaroda["1"].ProximityPrompt); task.wait(1)
 
                 local unitsBefore = #workspace.Units:GetChildren()
@@ -428,10 +428,10 @@ task.spawn(function()
 
         if currentWave >= 20 and currentWave < 149 then
             if not Progress.Lane2Bought and money >= 5000 then
-                WalkTo(workspace.Map.Interactions.PurchaseLane2.Part.Position)
+                TweenTo(workspace.Map.Interactions.PurchaseLane2.Part.Position)
                 Interact(workspace.Map.Interactions.PurchaseLane2.Part.ProximityPrompt); Progress.Lane2Bought = true
             elseif Progress.Lane2Bought and not Progress.Lane3Bought and money >= 10000 then
-                WalkTo(workspace.Map.Interactions.PurchaseLane3.Part.Position)
+                TweenTo(workspace.Map.Interactions.PurchaseLane3.Part.Position)
                 Interact(workspace.Map.Interactions.PurchaseLane3.Part.ProximityPrompt); Progress.Lane3Bought = true
             end
 
@@ -474,7 +474,7 @@ task.spawn(function()
                 end
 
                 if targetUid and money >= 50000 then
-                    WalkTo(workspace.Map.Interactions.PackATrait1["Cube.005"].Position)
+                    TweenTo(workspace.Map.Interactions.PackATrait1["Cube.005"].Position)
                     Interact(workspace.Map.Interactions.PackATrait1["Cube.005"].ProximityPrompt)
                     task.wait(2)
 
@@ -502,7 +502,7 @@ task.spawn(function()
             local isSpamWave = (currentWave >= 90 and currentWave <= 105)
 
             if Config.MysteryBoxSpam and Progress.Lane3Bought and (not Config.AutoBuyModifiers or Progress.BoughtArmorBeGone) and money >= 10000 and isSpamWave then
-                WalkTo(workspace.Map.Interactions.MysteryBox1.CrateBottom.default.Position)
+                TweenTo(workspace.Map.Interactions.MysteryBox1.CrateBottom.default.Position)
 
                 local timesToSpam = (money >= 100000) and 10 or 1
                 for _ = 1, timesToSpam do
@@ -531,12 +531,12 @@ task.spawn(function()
 
         if currentWave == 149 and not Progress.LateGameDoorsBought then
             pcall(function()
-                WalkTo(workspace.Map.Interactions.PurchaseLane4.Part.Position)
+                TweenTo(workspace.Map.Interactions.PurchaseLane4.Part.Position)
                 Interact(workspace.Map.Interactions.PurchaseLane4.Part.ProximityPrompt)
                 task.wait(1)
                 Interact(workspace.Map.Interactions.PurchaseLane5.Part.ProximityPrompt)
 
-                WalkTo(workspace.Map.Interactions.PurchaseLane6.Part.Position)
+                TweenTo(workspace.Map.Interactions.PurchaseLane6.Part.Position)
                 Interact(workspace.Map.Interactions.PurchaseLane6.Part.ProximityPrompt)
                 task.wait(1)
                 Interact(workspace.Map.Interactions.PurchaseLane7.Part.ProximityPrompt)
