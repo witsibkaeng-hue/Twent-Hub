@@ -140,9 +140,15 @@ local function Interact(prompt)
     if prompt and prompt:IsA("ProximityPrompt") then fireproximityprompt(prompt, 1) end
 end
 
-local function TeleportTo(pos)
+-- [ อัปเดต ] ระบบ Smart Teleport + Force Teleport (บังคับวาร์ป)
+local function TeleportTo(pos, delayTime, force)
     if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(pos)
+        local hrp = LocalPlayer.Character.HumanoidRootPart
+        -- ถ้าระบุ force เป็น true หรือระยะห่างเกิน 15 หน่วย ค่อยวาร์ป
+        if force or (hrp.Position - pos).Magnitude > 15 then
+            hrp.CFrame = CFrame.new(pos)
+            task.wait(delayTime or 0.5)
+        end
     end
 end
 
@@ -268,7 +274,7 @@ task.spawn(function()
                     local prompt = workspace.Map.Interactions["Barricade"..i].default.ProximityPrompt
                     
                     if string.find(prompt.ObjectText, "0/5") then
-                        TeleportTo(workspace.Map.Interactions["Barricade"..i].default.Position)
+                        TeleportTo(workspace.Map.Interactions["Barricade"..i].default.Position, 0.5)
                         task.wait(0.5) 
                         Interact(prompt)
                         task.wait(5) -- เพิ่มเวลาหน่วงหลังซ่อมเสร็จ เพื่อให้ลูปอื่นทำงานต่อได้
@@ -282,7 +288,7 @@ task.spawn(function()
             pcall(function()
                 local trapPrompt = workspace.Map.Interactions.Trap2.Part.ProximityPrompt
                 if string.find(trapPrompt.ObjectText, "ACTIVE") then
-                    TeleportTo(workspace.Map.Interactions.Trap2.Part.Position)
+                    TeleportTo(workspace.Map.Interactions.Trap2.Part.Position, 0.5)
                     task.wait(0.5)
                     Interact(trapPrompt)
                     task.wait(1)
@@ -311,6 +317,7 @@ task.spawn(function()
                 print("Game Over detected! Resetting data for Auto Replay...")
             end
             ResetData() -- ล้างความจำทั้งหมด
+            ClickButton(LocalPlayer.PlayerGui.EndScreen.Holder.Buttons.Retry.Button) -- กดปุ่ม Retry
             task.wait(3) -- หน่วงเวลารอเกมรีเซ็ต
             continue
         end
@@ -323,7 +330,7 @@ task.spawn(function()
 
         -- [ เวฟ 0 ]
         if currentWave == 0 and not Progress.FirstRabbitPlaced then
-            TeleportTo(workspace.Map.Interactions.UnitShrine_RabbitHero["1"].Position); task.wait(1)
+            TeleportTo(workspace.Map.Interactions.UnitShrine_RabbitHero["1"].Position,1,true); task.wait(1)
             Interact(workspace.Map.Interactions.UnitShrine_RabbitHero["1"].ProximityPrompt); task.wait(1)
             
             local unitsBefore = #workspace.Units:GetChildren()
@@ -339,7 +346,7 @@ task.spawn(function()
         -- [ ต้นเกม: ตั้งบอร์ด ]
         if currentWave >= 1 and currentWave < 20 then
             if Progress.SprintwagonsPlaced < 3 and money >= 1000 then
-                TeleportTo(workspace.Map.Interactions.UnitShrine_Sprintwagon["1"].Position); task.wait(0.5)
+                TeleportTo(workspace.Map.Interactions.UnitShrine_Sprintwagon["1"].Position,0.5,true); task.wait(0.5)
                 Interact(workspace.Map.Interactions.UnitShrine_Sprintwagon["1"].ProximityPrompt); task.wait(1)
                 
                 if money >= 550 then
@@ -350,7 +357,7 @@ task.spawn(function()
                     if #workspace.Units:GetChildren() > unitsBefore then Progress.SprintwagonsPlaced = index end
                 end
             elseif Progress.RabbitsPlaced < 3 and money >= 500 then
-                TeleportTo(workspace.Map.Interactions.UnitShrine_RabbitHero["1"].Position); task.wait(0.5)
+                TeleportTo(workspace.Map.Interactions.UnitShrine_RabbitHero["1"].Position,1,true); task.wait(0.5)
                 Interact(workspace.Map.Interactions.UnitShrine_RabbitHero["1"].ProximityPrompt); task.wait(1)
                 
                 if money >= 1200 then
@@ -363,7 +370,7 @@ task.spawn(function()
             elseif not Progress.SprintwagonsMaxed then
                 if money > 8000 then Progress.SprintwagonsMaxed = true end
             elseif Progress.TakarodaPlaced < 1 then
-                TeleportTo(workspace.Map.Interactions.UnitShrine_Takaroda["1"].Position); task.wait(0.5)
+                TeleportTo(workspace.Map.Interactions.UnitShrine_Takaroda["1"].Position,1,true); task.wait(0.5)
                 Interact(workspace.Map.Interactions.UnitShrine_Takaroda["1"].ProximityPrompt); task.wait(1)
                 
                 local unitsBefore = #workspace.Units:GetChildren()
@@ -376,10 +383,10 @@ task.spawn(function()
         -- [ กลางเกม: ซื้อ Lane, บัพ, และสุ่มตู้ ]
         if currentWave >= 20 and currentWave < 149 then
             if not Progress.Lane2Bought and money >= 5000 then
-                TeleportTo(workspace.Map.Interactions.PurchaseLane2.Part.Position); task.wait(1)
+                TeleportTo(workspace.Map.Interactions.PurchaseLane2.Part.Position, 1, true); task.wait(1)
                 Interact(workspace.Map.Interactions.PurchaseLane2.Part.ProximityPrompt); Progress.Lane2Bought = true
             elseif Progress.Lane2Bought and not Progress.Lane3Bought and money >= 10000 then
-                TeleportTo(workspace.Map.Interactions.PurchaseLane3.Part.Position); task.wait(1)
+                TeleportTo(workspace.Map.Interactions.PurchaseLane3.Part.Position, 1, true); task.wait(1)
                 Interact(workspace.Map.Interactions.PurchaseLane3.Part.ProximityPrompt); Progress.Lane3Bought = true
             end
 
@@ -424,7 +431,7 @@ task.spawn(function()
                 end
 
                 if targetUid and money >= 50000 then
-                    TeleportTo(workspace.Map.Interactions.PackATrait1["Cube.005"].Position)
+                    TeleportTo(workspace.Map.Interactions.PackATrait1["Cube.005"].Position, 1)
                     task.wait(1)
                     Interact(workspace.Map.Interactions.PackATrait1["Cube.005"].ProximityPrompt)
                     task.wait(2)
@@ -455,7 +462,7 @@ task.spawn(function()
 
             -- Spam Mystery Box
             if Config.MysteryBoxSpam and Progress.Lane3Bought and money >= 5000 then
-                TeleportTo(workspace.Map.Interactions.MysteryBox1.CrateBottom.default.Position)
+                TeleportTo(workspace.Map.Interactions.MysteryBox1.CrateBottom.default.Position, 0.5)
                 task.wait(0.5)
                 
                 local timesToSpam = (money >= 100000) and 10 or 1
@@ -493,10 +500,16 @@ task.spawn(function()
 
         if currentWave == 149 and not Progress.LateGameDoorsBought then
             pcall(function()
-                TeleportTo(workspace.Map.Interactions.PurchaseLane4.Part.Position); task.wait(1); Interact(workspace.Map.Interactions.PurchaseLane4.Part.ProximityPrompt)
-                task.wait(1); Interact(workspace.Map.Interactions.PurchaseLane5.Part.ProximityPrompt)
-                TeleportTo(workspace.Map.Interactions.PurchaseLane6.Part.Position); task.wait(1); Interact(workspace.Map.Interactions.PurchaseLane6.Part.ProximityPrompt)
-                task.wait(1); Interact(workspace.Map.Interactions.PurchaseLane7.Part.ProximityPrompt)
+-- [ อัปเดต ] บังคับวาร์ป (ใส่ true) สำหรับประตูเลทเกมทั้งหมด
+                TeleportTo(workspace.Map.Interactions.PurchaseLane4.Part.Position, 1, true)
+                Interact(workspace.Map.Interactions.PurchaseLane4.Part.ProximityPrompt)
+                task.wait(1)
+                Interact(workspace.Map.Interactions.PurchaseLane5.Part.ProximityPrompt)
+                
+                TeleportTo(workspace.Map.Interactions.PurchaseLane6.Part.Position, 1, true)
+                Interact(workspace.Map.Interactions.PurchaseLane6.Part.ProximityPrompt)
+                task.wait(1)
+                Interact(workspace.Map.Interactions.PurchaseLane7.Part.ProximityPrompt)
             end)
             Progress.LateGameDoorsBought = true
         end
