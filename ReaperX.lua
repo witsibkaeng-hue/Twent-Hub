@@ -389,7 +389,7 @@ task.spawn(function()
             end
 
             if Config.MysteryBoxSpam and Progress.Lane3Bought and money >= 10000 then
-                TeleportTo(workspace.Map.Interactions.MysteryBox1.CrateBottom.Position); task.wait(1)
+                TeleportTo(workspace.Map.Interactions.MysteryBox1.Position); task.wait(1)
                 Interact(workspace.Map.Interactions.MysteryBox1.CrateBottom.default.ProximityPrompt); task.wait(3)
                 
                 pcall(function()
