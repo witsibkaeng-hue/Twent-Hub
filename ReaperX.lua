@@ -241,7 +241,7 @@ task.spawn(function()
         if not Config.AutoPlayZombies then continue end
         local currentWave = GetWave()
         local money = GetMoney()
-
+        print("Current Wave:", currentWave, "Money:", money)
         -- [ เช็ค Standby รอรีเซ็ตเวฟ และรอให้หน้าจอ EndScreen ขึ้น ]
         if currentWave > 0 and currentWave < 10 and not Progress.FirstRabbitPlaced then
             local endScreen = LocalPlayer.PlayerGui:FindFirstChild("EndScreen")
@@ -259,17 +259,20 @@ task.spawn(function()
             PlaceUnit("Rabbit Hero (Guts)", 1, RabbitCoords[1], UnitDatabase["Rabbit Hero (Guts)"])
             Progress.FirstRabbitPlaced = true
             Networking.SkipWaveEvent:FireServer("Skip"); task.wait(3)
+            print("Placed first Rabbit Hero and skipped to wave 1")
         end
 
         -- [ ต้นเกม: ตั้งบอร์ด (อัปเดตลอจิกใหม่จากคุณ) ]
         if currentWave >= 1 and currentWave < 20 then
             if Progress.SprintwagonsPlaced < 3 and money >= 1000 then
+                print("Attempting to place Sprintwagon. Currently placed:", Progress.SprintwagonsPlaced)
                 TeleportTo(workspace.Map.Interactions.UnitShrine_Sprintwagon["1"].Position); task.wait(0.5)
                 Interact(workspace.Map.Interactions.UnitShrine_Sprintwagon["1"].ProximityPrompt); task.wait(1)
                 if money >= 550 then
                     local index = Progress.SprintwagonsPlaced + 1
                     PlaceUnit("Sprintwagon", 1, SprintwagonCoords[index], UnitDatabase["Sprintwagon"])
                     Progress.SprintwagonsPlaced = index; task.wait(2)
+                    print("Placed Sprintwagon number:", index)
                 end
             elseif Progress.RabbitsPlaced < 3 and money >= 500 then
                 TeleportTo(workspace.Map.Interactions.UnitShrine_RabbitHero["1"].Position); task.wait(0.5)
