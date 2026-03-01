@@ -17,30 +17,40 @@ local Config = {
     AutoBuyModifiers = true
 }
 
-local Progress = {
-    FirstRabbitPlaced = false,
-    SprintwagonsPlaced = 0,
-    SprintwagonsMaxed = false,
-    RabbitsPlaced = 1,
-    TakarodaPlaced = 0,
-    Lane2Bought = false,
-    Lane3Bought = false,
-    ModifiersBought = false,
-    LateGameDoorsBought = false,
-    LichSpellsConfirmed = false,
-    BoughtFortuneCity = false,
-    BoughtFastHands = false,
-    BoughtEagleEyed = false,
-    BoughtHeavyHitter = false,
-    BoughtArmorBeGone = false
-}
+-- สร้างตัวแปรลอยไว้ก่อน
+local Progress = {}
+local ProcessedUnits = {}
 
-local ProcessedUnits = {
-    Upgrade = {},
-    Priority = {},
-    EquipSkill = {},
-    PackATrait = {} 
-}
+-- ฟังก์ชันสำหรับล้างสมองสคริปต์ เริ่มรอบใหม่
+local function ResetData()
+    Progress = {
+        FirstRabbitPlaced = false,
+        SprintwagonsPlaced = 0,
+        SprintwagonsMaxed = false,
+        RabbitsPlaced = 1,
+        TakarodaPlaced = 0,
+        Lane2Bought = false,
+        Lane3Bought = false,
+        ModifiersBought = false,
+        LateGameDoorsBought = false,
+        LichSpellsConfirmed = false,
+        BoughtFortuneCity = false,
+        BoughtFastHands = false,
+        BoughtEagleEyed = false,
+        BoughtHeavyHitter = false,
+        BoughtArmorBeGone = false
+    }
+    
+    ProcessedUnits = {
+        Upgrade = {},
+        Priority = {},
+        EquipSkill = {},
+        PackATrait = {} 
+    }
+end
+
+-- เรียกใช้ครั้งแรกตอนรันสคริปต์
+ResetData()
 
 local UnitDatabase = {
     ["Trash Gamer (Twin Blades)"] = "366:Evolved",
@@ -170,6 +180,7 @@ task.spawn(function()
         local hasLichKing = false
 
         for _, uid in pairs(uids) do
+            -- หาชื่อโมเดลตัวละครจากโฟลเดอร์ UID
             local unitFolder = workspace.Units:FindFirstChild(uid)
             local unitName = ""
             
@@ -186,11 +197,13 @@ task.spawn(function()
                 end
             end
 
+            -- 1. Auto Upgrade
             if Config.AutoUpgrade and not ProcessedUnits.Upgrade[uid] then
                 pcall(function() Networking.Units.AutoUpgradeEvent:FireServer("Toggle", uid) end)
                 ProcessedUnits.Upgrade[uid] = true
             end
             
+            -- 2. Auto Priority
             if Config.AutoPriority and not ProcessedUnits.Priority[uid] then
                 pcall(function()
                     local targetPriority = string.find(unitName, "Warlord") and "Closest" or "First"
@@ -199,6 +212,7 @@ task.spawn(function()
                 ProcessedUnits.Priority[uid] = true
             end
             
+            -- 3. Auto Skills
             if Config.AutoSkill and unitName ~= "" then
                 pcall(function()
                     if string.find(unitName, "Koguro") then
@@ -245,12 +259,11 @@ task.spawn(function()
                 for i = 1, 3 do
                     local prompt = workspace.Map.Interactions["Barricade"..i].default.ProximityPrompt
                     
-                    -- เอาเงื่อนไข "1/5" ออกไป ให้เช็คแค่ตอนพังสนิท "0/5"
                     if string.find(prompt.ObjectText, "0/5") then
                         TeleportTo(workspace.Map.Interactions["Barricade"..i].default.Position)
                         task.wait(0.5) 
                         Interact(prompt)
-                        task.wait(5) -- เพิ่มเวลาหน่วงหลังซ่อมเสร็จ เพื่อให้สคริปต์กลับไปทำลูปหลักได้เต็มที่
+                        task.wait(5) -- เพิ่มเวลาหน่วงหลังซ่อมเสร็จ เพื่อให้ลูปอื่นทำงานต่อได้
                     end
                 end
             end)
@@ -270,7 +283,6 @@ task.spawn(function()
         end
     end
 end)
-
 ---------------------------------------------------------------------------
 -- [5] Main Logic Loop
 ---------------------------------------------------------------------------
@@ -283,14 +295,25 @@ task.spawn(function()
         local currentWave = GetWave()
         local money = GetMoney()
 
-        if currentWave > 0 and currentWave < 10 and not Progress.FirstRabbitPlaced then
-            local endScreen = LocalPlayer.PlayerGui:FindFirstChild("EndScreen")
-            if not (endScreen and endScreen.Enabled) then
-                task.wait(0.2)
-                continue
+        local endScreen = LocalPlayer.PlayerGui:FindFirstChild("EndScreen")
+
+        -- [ เช็ค EndScreen: ถ้าฐานแตกหรือจบเกม ให้ล้างข้อมูลเตรียม Auto Replay ]
+        if endScreen and endScreen.Enabled then
+            if currentWave < 150 then
+                print("Game Over detected! Resetting data for Auto Replay...")
             end
+            ResetData() -- ล้างความจำทั้งหมด
+            task.wait(3) -- หน่วงเวลารอเกมรีเซ็ต
+            continue
         end
 
+        -- [ เช็ค Standby: ถ้าเข้ามาตอนเกมเริ่มไปแล้ว ให้ยืนรอจนกว่าจะรีเซ็ตเวฟ ]
+        if currentWave > 0 and currentWave < 10 and not Progress.FirstRabbitPlaced then
+            task.wait(1)
+            continue
+        end
+
+        -- [ เวฟ 0 ]
         if currentWave == 0 and not Progress.FirstRabbitPlaced then
             TeleportTo(workspace.Map.Interactions.UnitShrine_RabbitHero["1"].Position); task.wait(1)
             Interact(workspace.Map.Interactions.UnitShrine_RabbitHero["1"].ProximityPrompt); task.wait(1)
@@ -305,6 +328,7 @@ task.spawn(function()
             end
         end
 
+        -- [ ต้นเกม: ตั้งบอร์ด ]
         if currentWave >= 1 and currentWave < 20 then
             if Progress.SprintwagonsPlaced < 3 and money >= 1000 then
                 TeleportTo(workspace.Map.Interactions.UnitShrine_Sprintwagon["1"].Position); task.wait(0.5)
@@ -341,6 +365,7 @@ task.spawn(function()
             end
         end
 
+        -- [ กลางเกม: ซื้อ Lane, บัพ, และสุ่มตู้ ]
         if currentWave >= 20 and currentWave < 149 then
             if not Progress.Lane2Bought and money >= 5000 then
                 TeleportTo(workspace.Map.Interactions.PurchaseLane2.Part.Position); task.wait(1)
@@ -370,20 +395,16 @@ task.spawn(function()
                 end
             end
 
-            -- Auto Pack-A-Trait (กดเปิดแล้วปิด UI ด้วย)
+            -- Auto Pack-A-Trait
             if Config.AutoBuyModifiers and Progress.BoughtArmorBeGone and money >= 50000 then
                 local targetUid, targetName = nil, nil
-                
                 for _, uid in pairs(GetAllMyUnitUIDs()) do
                     if not ProcessedUnits.PackATrait[uid] then
                         local unitFolder = workspace.Units:FindFirstChild(uid)
                         if unitFolder then
                             for _, child in pairs(unitFolder:GetChildren()) do
                                 if not string.find(child.Name, "Sprintwagon") and 
-                                   not string.find(child.Name, "Takaroda") 
-                                --    and 
-                                --    not string.find(child.Name, "Rabbit Hero") 
-                                   then
+                                   not string.find(child.Name, "Takaroda") then
                                     targetUid = uid
                                     targetName = child.Name
                                     break
@@ -413,7 +434,6 @@ task.spawn(function()
                                 ClickButton(selectBtn) 
                                 task.wait(1)
                                 
-                                -- [ อัปเดต ] กดปุ่ม Back ปิดหน้า Unit Manager
                                 local backBtn = LocalPlayer.PlayerGui.UnitManager.Holder.Back.Button
                                 ClickButton(backBtn)
                             end
@@ -425,19 +445,18 @@ task.spawn(function()
                 end
             end
 
-            -- [ อัปเดต ] ระบบ Spam Mystery Box ขั้นสูง (สแปม 10 รอบถ้ารวยจัด)
+            -- Spam Mystery Box
             if Config.MysteryBoxSpam and Progress.Lane3Bought and money >= 5000 then
                 TeleportTo(workspace.Map.Interactions.MysteryBox1.CrateBottom.default.Position)
                 task.wait(0.5)
                 
-                -- ถ้าเงินเกิน 1 แสน กดสุ่ม 10 ครั้งรัวๆ, ถ้าน้อยกว่านั้นแต่เกินหมื่น กดครั้งเดียว
                 local timesToSpam = (money >= 100000) and 10 or 1
                 
                 for _ = 1, timesToSpam do
                     Interact(workspace.Map.Interactions.MysteryBox1.CrateBottom.default.ProximityPrompt)
                     task.wait(0.2)
                 end
-                task.wait(2) -- รอให้ของไหลเข้ากระเป๋าให้ครบ
+                task.wait(2)
                 
                 pcall(function()
                     for i = 1, 6 do
