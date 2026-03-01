@@ -27,7 +27,19 @@ local Progress = {
     Lane3Bought = false,
     ModifiersBought = false,
     LateGameDoorsBought = false,
-    LichSpellsConfirmed = false
+    LichSpellsConfirmed = false,
+    BoughtFortuneCity = false,
+    BoughtFastHands = false,
+    BoughtEagleEyed = false,
+    BoughtHeavyHitter = false,
+    BoughtArmorBeGone = false
+}
+
+local ProcessedUnits = {
+    Upgrade = {},
+    Priority = {},
+    EquipSkill = {},
+    PackATrait = {} 
 }
 
 local UnitDatabase = {
@@ -42,14 +54,6 @@ local UnitDatabase = {
     ["Iscanur (Pride)"] = 270,
     ["Koguro (Unsealed)"] = 235,
     ["Ice Queen (Release)"] = 363
-}
-
-local ModifiersToBuy = {
-    "FortuneCity",
-    "FastHands",
-    "EagleEyed",
-    "HeavyHitter",
-    "ArmorBeGone"
 }
 
 ---------------------------------------------------------------------------
@@ -110,8 +114,8 @@ local function GetMoney()
     local success, text = pcall(function() return LocalPlayer.PlayerGui.Hotbar.Main.Yen.Text end)
     if not success or not text then return 0 end
     
-    local cleanText = string.gsub(text, "[^%d]", "") -- ลบตัวอักษรทิ้ง เหลือแต่ "17440"
-    return tonumber(cleanText) or 0 -- แปลงเป็นตัวเลขปกติ
+    local cleanText = string.gsub(text, "[^%d]", "")
+    return tonumber(cleanText) or 0
 end
 
 local function Interact(prompt)
@@ -138,33 +142,39 @@ local function GetAllMyUnitUIDs()
     end)
     return uids
 end
+
+local function ClickButton(btn)
+    if not btn then return end
+    pcall(function()
+        if getconnections then
+            for _, connection in pairs(getconnections(btn.MouseButton1Click)) do
+                connection:Fire()
+            end
+            for _, connection in pairs(getconnections(btn.Activated)) do
+                connection:Fire()
+            end
+        end
+    end)
+end
+
 ---------------------------------------------------------------------------
 -- [4] Background Tasks (Auto Upgrade, Priority, Skills & Defense)
 ---------------------------------------------------------------------------
 task.spawn(function()
     local KoguroDomains = {"Fire", "Ice", "Sand"}
     local domainIndex = 1
-    
-    local ProcessedUnits = {
-        Upgrade = {},
-        Priority = {},
-        EquipSkill = {}
-    }
 
     while task.wait(3) do
         if not Config.AutoPlayZombies then continue end
         local uids = GetAllMyUnitUIDs()
-        
-        local hasLichKing = false -- เอาไว้เช็คว่าต้องยืนยันคาถาไหม
+        local hasLichKing = false
 
         for _, uid in pairs(uids) do
-            -- หาชื่อโมเดลตัวละครจากโฟลเดอร์ UID
             local unitFolder = workspace.Units:FindFirstChild(uid)
             local unitName = ""
             
             if unitFolder then
                 for _, child in pairs(unitFolder:GetChildren()) do
-                    -- เช็คหาชื่อตัวละครที่เราตั้งเงื่อนไขพิเศษไว้
                     if string.find(child.Name, "Warlord") or 
                        string.find(child.Name, "Koguro") or 
                        string.find(child.Name, "Trash Gamer") or 
@@ -176,47 +186,36 @@ task.spawn(function()
                 end
             end
 
-            -- 1. Auto Upgrade
             if Config.AutoUpgrade and not ProcessedUnits.Upgrade[uid] then
                 pcall(function() Networking.Units.AutoUpgradeEvent:FireServer("Toggle", uid) end)
                 ProcessedUnits.Upgrade[uid] = true
             end
             
-            -- 2. Auto Priority
             if Config.AutoPriority and not ProcessedUnits.Priority[uid] then
                 pcall(function()
-                    -- ถ้าชื่อมีคำว่า Warlord ให้เป็น Closest ถ้าไม่ใช่ให้เป็น First
                     local targetPriority = string.find(unitName, "Warlord") and "Closest" or "First"
                     Networking.UnitEvent:FireServer("ChangePriority", uid, targetPriority)
                 end)
                 ProcessedUnits.Priority[uid] = true
             end
             
-            -- 3. Auto Skills (เช็คชื่อก่อนยิงสกิล)
             if Config.AutoSkill and unitName ~= "" then
                 pcall(function()
                     if string.find(unitName, "Koguro") then
-                        -- วนสลับโดเมนให้ Koguro
                         Networking.Units["Update 6.5"].Koguro_DomainEvent:FireServer("ActivateDomain", KoguroDomains[domainIndex], uid)
-                        
                     elseif string.find(unitName, "Trash Gamer") then
-                        -- สวมใส่สกิลให้ Trash Gamer ทำครั้งเดียว
                         if not ProcessedUnits.EquipSkill[uid] then
                             Networking.Units["Update 10.5"].EquipSkill:FireServer(uid, "Primary", 3)
                             Networking.Units["Update 10.5"].EquipSkill:FireServer(uid, "Secondary", 3)
                             ProcessedUnits.EquipSkill[uid] = true
                         end
-                        
                     elseif string.find(unitName, "Lich King") then
-                        hasLichKing = true -- เจอ Lich King แล้ว
+                        hasLichKing = true
                         local wave = GetWave()
                         if wave > 0 and wave % 10 == 0 then
-                            -- ใช้สกิลไม้ตายเฉพาะเวฟบอส
                             Networking.AbilityEvent:FireServer("Activate", uid, "The Goal of All Life is Death")
                         end
-                        
                     elseif string.find(unitName, "Ice Queen") then
-                        -- ใช้สกิลแช่แข็ง Frozen World ของ Ice Queen
                         Networking.AbilityEvent:FireServer("Activate", uid, "Frozen World")
                     end
                 end)
@@ -224,17 +223,10 @@ task.spawn(function()
             task.wait(0.1)
         end
         
-        -- สลับโดเมน Koguro รอบถัดไป
         domainIndex = domainIndex >= 3 and 1 or domainIndex + 1
 
-        -- เซ็ตคาถาเวทมนตร์ให้ Lich King (ทำเมื่อมี Lich King บนบอร์ดเท่านั้น)
         if Config.AutoSkill and hasLichKing and not Progress.LichSpellsConfirmed then
             pcall(function()
-                -- [[ ข้อมูลเวทมนตร์ Lich King ]]
-                -- 8=Greater Heal, 9=Astral Smite, 12=Paralysis, 13=Grasp Heart, 2=Create Greater Undead, 3=Supreme Summoning
-                -- 16=Cyclone, 17=Greater Magic Shield, 18=Water Sword, 19=Acid Rain, 6=Nuclear Blast, 7=Creation
-                -- 10=Ray of Negative Energy, 11=Black Hole, 20=Fireball, 21=Apocalypse, 4=Aura Of Despair
-                -- 5=Aura Of the Overload, 14=Haste, 15=Rage, 1=Undead Control
                 Networking.Units["Update 9.5"].ConfirmLichSpells:FireServer({{8, 13, 2, 17}})
                 Progress.LichSpellsConfirmed = true
             end)
@@ -246,43 +238,51 @@ end)
 task.spawn(function()
     while task.wait(3) do
         local wave = GetWave()
+        
+        -- [ ซ่อมบาร์เรีย: รอจนกว่าจะแตก (0/5) เท่านั้นถึงจะซ่อม ]
         if wave >= 20 then
             pcall(function()
                 for i = 1, 3 do
                     local prompt = workspace.Map.Interactions["Barricade"..i].default.ProximityPrompt
-                    if string.find(prompt.ObjectText, "0/5") or string.find(prompt.ObjectText, "1/5") then
+                    
+                    -- เอาเงื่อนไข "1/5" ออกไป ให้เช็คแค่ตอนพังสนิท "0/5"
+                    if string.find(prompt.ObjectText, "0/5") then
                         TeleportTo(workspace.Map.Interactions["Barricade"..i].default.Position)
-                        task.wait(0.5); Interact(prompt); task.wait(1)
+                        task.wait(0.5) 
+                        Interact(prompt)
+                        task.wait(5) -- เพิ่มเวลาหน่วงหลังซ่อมเสร็จ เพื่อให้สคริปต์กลับไปทำลูปหลักได้เต็มที่
                     end
                 end
             end)
         end
-        if wave >= 100 then
+        
+        -- [ สปีดบูสเตอร์: กดเฉพาะเวฟที่หาร 10 ลงตัว ]
+        if wave >= 100 and wave % 10 == 0 then
             pcall(function()
                 local trapPrompt = workspace.Map.Interactions.Trap2.Part.ProximityPrompt
                 if string.find(trapPrompt.ObjectText, "ACTIVE") then
                     TeleportTo(workspace.Map.Interactions.Trap2.Part.Position)
-                    task.wait(0.5); Interact(trapPrompt)
+                    task.wait(0.5)
+                    Interact(trapPrompt)
+                    task.wait(1)
                 end
             end)
         end
     end
 end)
+
 ---------------------------------------------------------------------------
 -- [5] Main Logic Loop
 ---------------------------------------------------------------------------
 task.spawn(function()
     local SprintwagonCoords = { Vector3.new(-25.12, 254.41, 57.62), Vector3.new(-25.07, 254.41, 54.16), Vector3.new(-21.37, 254.41, 55.26) }
     local RabbitCoords = { Vector3.new(27.82, 254.63, 92.19), Vector3.new(27.82, 253.97, 101.55), Vector3.new(27.82, 256.90, 96.76) }
-    local SpamCoords = { Vector3.new(8.12, 255.58, 97.70), Vector3.new(4.03, 251.52, 76.50), Vector3.new(10.5, 255.58, 95.0) } 
 
     while task.wait(1) do
         if not Config.AutoPlayZombies then continue end
         local currentWave = GetWave()
         local money = GetMoney()
-        -- print("Current Wave:", currentWave, "Money:", money)
 
-        -- [ เช็ค Standby รอรีเซ็ตเวฟ และรอให้หน้าจอ EndScreen ขึ้น ]
         if currentWave > 0 and currentWave < 10 and not Progress.FirstRabbitPlaced then
             local endScreen = LocalPlayer.PlayerGui:FindFirstChild("EndScreen")
             if not (endScreen and endScreen.Enabled) then
@@ -291,27 +291,20 @@ task.spawn(function()
             end
         end
 
-        -- [ เวฟ 0 ]
         if currentWave == 0 and not Progress.FirstRabbitPlaced then
             TeleportTo(workspace.Map.Interactions.UnitShrine_RabbitHero["1"].Position); task.wait(1)
             Interact(workspace.Map.Interactions.UnitShrine_RabbitHero["1"].ProximityPrompt); task.wait(1)
             
-            -- นับจำนวนยูนิตก่อนวาง
             local unitsBefore = #workspace.Units:GetChildren()
             PlaceUnit("Rabbit Hero (Guts)", 1, RabbitCoords[1], UnitDatabase["Rabbit Hero (Guts)"])
-            task.wait(2) -- รอเซิร์ฟเวอร์ประมวลผลการวาง
+            task.wait(2)
             
-            -- เช็คว่ายูนิตเพิ่มขึ้นไหม
             if #workspace.Units:GetChildren() > unitsBefore then
                 Progress.FirstRabbitPlaced = true
                 Networking.SkipWaveEvent:FireServer("Skip"); task.wait(3)
-                print("Placed first Rabbit Hero successfully and skipped to wave 1")
-            else
-                print("Failed to place Rabbit Hero! Retrying in next loop...")
             end
         end
 
-        -- [ ต้นเกม: ตั้งบอร์ด ]
         if currentWave >= 1 and currentWave < 20 then
             if Progress.SprintwagonsPlaced < 3 and money >= 1000 then
                 TeleportTo(workspace.Map.Interactions.UnitShrine_Sprintwagon["1"].Position); task.wait(0.5)
@@ -322,15 +315,8 @@ task.spawn(function()
                     local unitsBefore = #workspace.Units:GetChildren()
                     PlaceUnit("Sprintwagon", 1, SprintwagonCoords[index], UnitDatabase["Sprintwagon"])
                     task.wait(2)
-                    
-                    if #workspace.Units:GetChildren() > unitsBefore then
-                        Progress.SprintwagonsPlaced = index
-                        print("Successfully placed Sprintwagon number:", index)
-                    else
-                        print("Failed to place Sprintwagon number", index, "Retrying...")
-                    end
+                    if #workspace.Units:GetChildren() > unitsBefore then Progress.SprintwagonsPlaced = index end
                 end
-                
             elseif Progress.RabbitsPlaced < 3 and money >= 500 then
                 TeleportTo(workspace.Map.Interactions.UnitShrine_RabbitHero["1"].Position); task.wait(0.5)
                 Interact(workspace.Map.Interactions.UnitShrine_RabbitHero["1"].ProximityPrompt); task.wait(1)
@@ -340,18 +326,10 @@ task.spawn(function()
                     local unitsBefore = #workspace.Units:GetChildren()
                     PlaceUnit("Rabbit Hero (Guts)", 1, RabbitCoords[index], UnitDatabase["Rabbit Hero (Guts)"])
                     task.wait(2)
-                    
-                    if #workspace.Units:GetChildren() > unitsBefore then
-                        Progress.RabbitsPlaced = index
-                        print("Successfully placed Rabbit Hero number:", index)
-                    else
-                        print("Failed to place Rabbit Hero number", index, "Retrying...")
-                    end
+                    if #workspace.Units:GetChildren() > unitsBefore then Progress.RabbitsPlaced = index end
                 end
-                
             elseif not Progress.SprintwagonsMaxed then
                 if money > 8000 then Progress.SprintwagonsMaxed = true end
-                
             elseif Progress.TakarodaPlaced < 1 then
                 TeleportTo(workspace.Map.Interactions.UnitShrine_Takaroda["1"].Position); task.wait(0.5)
                 Interact(workspace.Map.Interactions.UnitShrine_Takaroda["1"].ProximityPrompt); task.wait(1)
@@ -359,17 +337,10 @@ task.spawn(function()
                 local unitsBefore = #workspace.Units:GetChildren()
                 PlaceUnit("Takaroda", 1, Vector3.new(-22.70, 253.16, 49.12), UnitDatabase["Takaroda"])
                 task.wait(2)
-                
-                if #workspace.Units:GetChildren() > unitsBefore then
-                    Progress.TakarodaPlaced = 1
-                    print("Successfully placed Takaroda")
-                else
-                    print("Failed to place Takaroda! Retrying...")
-                end
+                if #workspace.Units:GetChildren() > unitsBefore then Progress.TakarodaPlaced = 1 end
             end
         end
 
-        -- [ กลางเกม: ซื้อ Lane, บัพ, และสุ่มตู้ ]
         if currentWave >= 20 and currentWave < 149 then
             if not Progress.Lane2Bought and money >= 5000 then
                 TeleportTo(workspace.Map.Interactions.PurchaseLane2.Part.Position); task.wait(1)
@@ -379,18 +350,94 @@ task.spawn(function()
                 Interact(workspace.Map.Interactions.PurchaseLane3.Part.ProximityPrompt); Progress.Lane3Bought = true
             end
 
-            if Config.AutoBuyModifiers and Progress.Lane3Bought and not Progress.ModifiersBought and money >= 50000 then
-                for _, modId in ipairs(ModifiersToBuy) do
-                    local args = { "Purchase", { ModifierId = modId } }
-                    Networking.WinterZombies.ModifierMachineEvent:FireServer(unpack(args))
-                    task.wait(0.5)
+            -- ซื้อ Modifiers ทีละขั้น
+            if Config.AutoBuyModifiers and Progress.Lane3Bought then
+                if not Progress.BoughtFortuneCity and money >= 10000 then
+                    Networking.WinterZombies.ModifierMachineEvent:FireServer("Purchase", { ModifierId = "FortuneCity" })
+                    Progress.BoughtFortuneCity = true; task.wait(1)
+                elseif Progress.BoughtFortuneCity and not Progress.BoughtFastHands and money >= 50000 then
+                    Networking.WinterZombies.ModifierMachineEvent:FireServer("Purchase", { ModifierId = "FastHands" })
+                    Progress.BoughtFastHands = true; task.wait(1)
+                elseif Progress.BoughtFastHands and not Progress.BoughtEagleEyed and money >= 50000 then
+                    Networking.WinterZombies.ModifierMachineEvent:FireServer("Purchase", { ModifierId = "EagleEyed" })
+                    Progress.BoughtEagleEyed = true; task.wait(1)
+                elseif Progress.BoughtEagleEyed and not Progress.BoughtHeavyHitter and money >= 50000 then
+                    Networking.WinterZombies.ModifierMachineEvent:FireServer("Purchase", { ModifierId = "HeavyHitter" })
+                    Progress.BoughtHeavyHitter = true; task.wait(1)
+                elseif Progress.BoughtHeavyHitter and not Progress.BoughtArmorBeGone and money >= 100000 then
+                    Networking.WinterZombies.ModifierMachineEvent:FireServer("Purchase", { ModifierId = "ArmorBeGone" })
+                    Progress.BoughtArmorBeGone = true; task.wait(1)
                 end
-                Progress.ModifiersBought = true
             end
 
+            -- Auto Pack-A-Trait (กดเปิดแล้วปิด UI ด้วย)
+            if Config.AutoBuyModifiers and Progress.BoughtArmorBeGone and money >= 50000 then
+                local targetUid, targetName = nil, nil
+                
+                for _, uid in pairs(GetAllMyUnitUIDs()) do
+                    if not ProcessedUnits.PackATrait[uid] then
+                        local unitFolder = workspace.Units:FindFirstChild(uid)
+                        if unitFolder then
+                            for _, child in pairs(unitFolder:GetChildren()) do
+                                if not string.find(child.Name, "Sprintwagon") and 
+                                   not string.find(child.Name, "Takaroda") 
+                                --    and 
+                                --    not string.find(child.Name, "Rabbit Hero") 
+                                   then
+                                    targetUid = uid
+                                    targetName = child.Name
+                                    break
+                                end
+                            end
+                        end
+                    end
+                    if targetUid then break end
+                end
+
+                if targetUid and money >= 50000 then
+                    TeleportTo(workspace.Map.Interactions.PackATrait1["Cube.005"].Position)
+                    task.wait(1)
+                    Interact(workspace.Map.Interactions.PackATrait1["Cube.005"].ProximityPrompt)
+                    task.wait(2)
+                    
+                    pcall(function()
+                        local unitManagerBtn = LocalPlayer.PlayerGui.Guides.List.StageInfo.Buttons.UnitManager.Button
+                        ClickButton(unitManagerBtn)
+                        task.wait(1)
+                        
+                        local unitListItem = LocalPlayer.PlayerGui.UnitManager.Holder.List:FindFirstChild(targetUid)
+                        if unitListItem and unitListItem:FindFirstChild("Unit") then
+                            local unitFrame = unitListItem.Unit:FindFirstChild(targetName) 
+                            if unitFrame and unitFrame:FindFirstChild("Container") then
+                                local selectBtn = unitFrame.Container:FindFirstChild("Button")
+                                ClickButton(selectBtn) 
+                                task.wait(1)
+                                
+                                -- [ อัปเดต ] กดปุ่ม Back ปิดหน้า Unit Manager
+                                local backBtn = LocalPlayer.PlayerGui.UnitManager.Holder.Back.Button
+                                ClickButton(backBtn)
+                            end
+                        end
+                    end)
+                    
+                    ProcessedUnits.PackATrait[targetUid] = true
+                    task.wait(2)
+                end
+            end
+
+            -- [ อัปเดต ] ระบบ Spam Mystery Box ขั้นสูง (สแปม 10 รอบถ้ารวยจัด)
             if Config.MysteryBoxSpam and Progress.Lane3Bought and money >= 5000 then
-                TeleportTo(workspace.Map.Interactions.MysteryBox1.CrateBottom.default.Position); task.wait(1)
-                Interact(workspace.Map.Interactions.MysteryBox1.CrateBottom.default.ProximityPrompt); task.wait(3)
+                TeleportTo(workspace.Map.Interactions.MysteryBox1.CrateBottom.default.Position)
+                task.wait(0.5)
+                
+                -- ถ้าเงินเกิน 1 แสน กดสุ่ม 10 ครั้งรัวๆ, ถ้าน้อยกว่านั้นแต่เกินหมื่น กดครั้งเดียว
+                local timesToSpam = (money >= 100000) and 10 or 1
+                
+                for _ = 1, timesToSpam do
+                    Interact(workspace.Map.Interactions.MysteryBox1.CrateBottom.default.ProximityPrompt)
+                    task.wait(0.2)
+                end
+                task.wait(2) -- รอให้ของไหลเข้ากระเป๋าให้ครบ
                 
                 pcall(function()
                     for i = 1, 6 do
@@ -399,28 +446,17 @@ task.spawn(function()
                             local unitName = slot.UnitTemplate.Container.Holder.Main.UnitName.Text
                             
                             if UnitDatabase[unitName] and unitName ~= "Sprintwagon" and unitName ~= "Takaroda" and unitName ~= "Rabbit Hero (Guts)" then
+                                local centerX = 8.12  
+                                local centerY = 255.58
+                                local centerZ = 97.70 
                                 
-                                -- [ ระบบสุ่มพื้นที่วางตัวละคร (วงกลมแดง) ]
-                                local centerX = 8.12   -- พิกัด X ตรงกลาง
-                                local centerY = 255.58 -- ความสูง Y ต้องเป๊ะ
-                                local centerZ = 97.70  -- พิกัด Z ตรงกลาง
-                                
-                                -- สุ่มกระจายตัวรอบๆ จุดศูนย์กลาง (กว้าง -15 ถึง 15 หน่วย)
-                                -- การใช้ /10 เพื่อให้ได้เลขทศนิยม (เช่น 12.4) ตัวละครจะได้ไม่กระจุกในจุดเดียวกัน
                                 local offsetX = math.random(-150, 150) / 10 
                                 local offsetZ = math.random(-150, 150) / 10 
-                                
                                 local randomPos = Vector3.new(centerX + offsetX, centerY, centerZ + offsetZ)
                                 
                                 local unitsBefore = #workspace.Units:GetChildren()
                                 PlaceUnit(unitName, i, randomPos, UnitDatabase[unitName])
-                                task.wait(1.5) -- รอเซิร์ฟเวอร์โหลดโมเดลลงแมพ
-                                
-                                if #workspace.Units:GetChildren() > unitsBefore then
-                                    print("Successfully spam-placed:", unitName, "at", randomPos)
-                                else
-                                    print("Blocked! Cannot fit unit, will try a new spot next time.")
-                                end
+                                task.wait(1.5)
                             end
                         end
                     end
@@ -428,7 +464,6 @@ task.spawn(function()
             end
         end
 
-        -- [ เวฟ 149 - 150 ]
         if currentWave == 149 and not Progress.LateGameDoorsBought then
             pcall(function()
                 TeleportTo(workspace.Map.Interactions.PurchaseLane4.Part.Position); task.wait(1); Interact(workspace.Map.Interactions.PurchaseLane4.Part.ProximityPrompt)
