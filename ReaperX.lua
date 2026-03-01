@@ -107,6 +107,7 @@ end
 
 local function GetMoney()
     local success, text = pcall(function() return LocalPlayer.PlayerGui.Hotbar.Main.Yen.Text end)
+    print("Raw Money Text:", text) -- Debug: ดูข้อความดิบที่ได้มา
     return (success and text) and (tonumber(string.gsub(text, "[^%d]", "")) or 0) or 0
 end
 
