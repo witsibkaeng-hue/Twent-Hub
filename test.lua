@@ -8,7 +8,7 @@ local Networking = ReplicatedStorage:WaitForChild("Networking")
 local TeleportService = game:GetService("TeleportService")
 local GuiService = game:GetService("GuiService")
 local HttpService = game:GetService("HttpService")
-
+local FileName = "ReaperX_Config.json" -- ชื่อไฟล์ที่จะเซฟลงในเครื่อง
 ---------------------------------------------------------------------------
 -- [ Anti-AFK & Auto Reconnect ]
 ---------------------------------------------------------------------------
@@ -39,6 +39,39 @@ GuiService.ErrorMessageChanged:Connect(function()
         TeleportService:Teleport(LobbyId, LocalPlayer)
     end
 end)
+-- 2. ฟังก์ชันโหลดค่าที่เคยเซฟไว้
+local function LoadConfig()
+    -- เช็คว่ามีไฟล์นี้อยู่ในเครื่องไหม
+    if isfile and isfile(FileName) then
+        local success, decoded = pcall(function()
+            -- อ่านไฟล์และแปลง JSON กลับมาเป็นตาราง
+            return HttpService:JSONDecode(readfile(FileName))
+        end)
+        
+        -- ถ้าโหลดสำเร็จ ให้นำค่าที่โหลดมา ทับค่าเริ่มต้น
+        if success and type(decoded) == "table" then
+            for key, value in pairs(decoded) do
+                Config[key] = value
+            end
+            print("โหลดการตั้งค่าสำเร็จ!")
+        end
+    end
+end
+
+-- 3. ฟังก์ชันเซฟค่าลงเครื่อง
+local function SaveConfig()
+    if writefile then
+        local success, encoded = pcall(function()
+            -- แปลงตาราง Config ให้เป็น JSON
+            return HttpService:JSONEncode(Config)
+        end)
+        
+        if success then
+            writefile(FileName, encoded) -- เซฟทับไฟล์เดิม
+        end
+    end
+end
+LoadConfig()
 
 -- ฟังก์ชันส่งข้อความเข้า Discord Webhook
 local function SendWebhook(message)
@@ -147,13 +180,13 @@ local Tabs = {
 }
 
 -- แท็บ Main
-Tabs.Main:AddToggle("AutoPlay", {Title = "Auto Play Zombie Mode", Default = true }):OnChanged(function(v) Config.AutoPlayZombies = v end)
-Tabs.Main:AddToggle("AutoUp", {Title = "In-Game Auto Upgrade", Default = true }):OnChanged(function(v) Config.AutoUpgrade = v end)
-Tabs.Main:AddToggle("AutoSkill", {Title = "Auto Use Unit Skills", Default = true }):OnChanged(function(v) Config.AutoSkill = v end)
-Tabs.Main:AddToggle("SpamBox", {Title = "Spam Mystery Box & Place", Default = true }):OnChanged(function(v) Config.MysteryBoxSpam = v end)
+Tabs.Main:AddToggle("AutoPlay", {Title = "Auto Play Zombie Mode", Default = Config.AutoPlayZombies }):OnChanged(function(v) Config.AutoPlayZombies = v SaveConfig() end)
+Tabs.Main:AddToggle("AutoUp", {Title = "In-Game Auto Upgrade", Default = Config.AutoUpgrade }):OnChanged(function(v) Config.AutoUpgrade = v SaveConfig() end)
+Tabs.Main:AddToggle("AutoSkill", {Title = "Auto Use Unit Skills", Default = Config.AutoSkill }):OnChanged(function(v) Config.AutoSkill = v SaveConfig() end)
+Tabs.Main:AddToggle("SpamBox", {Title = "Spam Mystery Box & Place", Default = Config.MysteryBoxSpam }):OnChanged(function(v) Config.MysteryBoxSpam = v SaveConfig() end)
 
 -- แท็บ Misc
-Tabs.Misc:AddToggle("AutoRecon", {Title = "Auto Reconnect & Execute", Default = true }):OnChanged(function(v) Config.AutoReconnect = v end)
+Tabs.Misc:AddToggle("AutoRecon", {Title = "Auto Reconnect & Execute", Default = Config.AutoReconnect }):OnChanged(function(v) Config.AutoReconnect = v SaveConfig() end)
 
 -- แท็บ Webhook
 Tabs.Webhook:AddInput("WebURL", {
@@ -164,6 +197,7 @@ Tabs.Webhook:AddInput("WebURL", {
     Finished = true,
     Callback = function(Value)
         Config.WebhookURL = Value
+        SaveConfig()
         SendWebhook("✅ เชื่อมต่อ Webhook สำเร็จแล้ว ระบบพร้อมทำงาน!")
     end
 })
