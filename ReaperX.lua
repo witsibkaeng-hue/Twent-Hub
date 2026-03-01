@@ -374,7 +374,7 @@ task.spawn(function()
             if not Progress.Lane2Bought and money >= 5000 then
                 TeleportTo(workspace.Map.Interactions.PurchaseLane2.Part.Position); task.wait(1)
                 Interact(workspace.Map.Interactions.PurchaseLane2.Part.ProximityPrompt); Progress.Lane2Bought = true
-            elseif Progress.Lane2Bought and not Progress.Lane3Bought and money >= 8000 then
+            elseif Progress.Lane2Bought and not Progress.Lane3Bought and money >= 10000 then
                 TeleportTo(workspace.Map.Interactions.PurchaseLane3.Part.Position); task.wait(1)
                 Interact(workspace.Map.Interactions.PurchaseLane3.Part.ProximityPrompt); Progress.Lane3Bought = true
             end
@@ -388,7 +388,7 @@ task.spawn(function()
                 Progress.ModifiersBought = true
             end
 
-            if Config.MysteryBoxSpam and Progress.Lane3Bought and money >= 10000 then
+            if Config.MysteryBoxSpam and Progress.Lane3Bought and money >= 5000 then
                 TeleportTo(workspace.Map.Interactions.MysteryBox1.CrateBottom.default.Position); task.wait(1)
                 Interact(workspace.Map.Interactions.MysteryBox1.CrateBottom.default.ProximityPrompt); task.wait(3)
                 
@@ -396,15 +396,30 @@ task.spawn(function()
                     for i = 1, 6 do
                         local slot = LocalPlayer.PlayerGui.Hotbar.Main.Units[tostring(i)]
                         if slot and slot.UnitTemplate.Container.Holder.Main:FindFirstChild("UnitName") then
-                            local unitName = slot.UnitTemplate.Container.Holder.Main.UnitName.Text                            
+                            local unitName = slot.UnitTemplate.Container.Holder.Main.UnitName.Text
+                            
                             if UnitDatabase[unitName] and unitName ~= "Sprintwagon" and unitName ~= "Takaroda" and unitName ~= "Rabbit Hero (Guts)" then
-                                local randomPos = SpamCoords[math.random(1, #SpamCoords)]
+                                
+                                -- [ ระบบสุ่มพื้นที่วางตัวละคร (วงกลมแดง) ]
+                                local centerX = 8.12   -- พิกัด X ตรงกลาง
+                                local centerY = 255.58 -- ความสูง Y ต้องเป๊ะ
+                                local centerZ = 97.70  -- พิกัด Z ตรงกลาง
+                                
+                                -- สุ่มกระจายตัวรอบๆ จุดศูนย์กลาง (กว้าง -15 ถึง 15 หน่วย)
+                                -- การใช้ /10 เพื่อให้ได้เลขทศนิยม (เช่น 12.4) ตัวละครจะได้ไม่กระจุกในจุดเดียวกัน
+                                local offsetX = math.random(-150, 150) / 10 
+                                local offsetZ = math.random(-150, 150) / 10 
+                                
+                                local randomPos = Vector3.new(centerX + offsetX, centerY, centerZ + offsetZ)
+                                
                                 local unitsBefore = #workspace.Units:GetChildren()
                                 PlaceUnit(unitName, i, randomPos, UnitDatabase[unitName])
-                                task.wait(1)
+                                task.wait(1.5) -- รอเซิร์ฟเวอร์โหลดโมเดลลงแมพ
                                 
                                 if #workspace.Units:GetChildren() > unitsBefore then
-                                    print("Successfully spam-placed:", unitName)
+                                    print("Successfully spam-placed:", unitName, "at", randomPos)
+                                else
+                                    print("Blocked! Cannot fit unit, will try a new spot next time.")
                                 end
                             end
                         end
