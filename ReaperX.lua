@@ -463,7 +463,7 @@ task.spawn(function()
             -- Spam Mystery Box
             -- [ อัปเดต ] บังคับให้ซื้อ Modifiers ครบทุกอันก่อน ถึงจะเริ่มสุ่ม Mystery Box
             -- เราใช้ (not Config.AutoBuyModifiers or Progress.BoughtArmorBeGone) เพื่อกันบัคในกรณีที่คุณกดปิดการซื้อบัพอัตโนมัติไว้
-            if Config.MysteryBoxSpam and Progress.Lane3Bought and (not Config.AutoBuyModifiers or Progress.BoughtArmorBeGone) and money >= 10000 then
+            if Config.MysteryBoxSpam and Progress.Lane3Bought and (not Config.AutoBuyModifiers or Progress.BoughtArmorBeGone) and money >= 5000 then
                 TeleportTo(workspace.Map.Interactions.MysteryBox1.CrateBottom.default.Position, 0.5)
                 
                 local timesToSpam = (money >= 100000) and 10 or 1
