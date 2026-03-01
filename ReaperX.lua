@@ -10,9 +10,9 @@ local Config = {
     AutoCreate = true,
     AutoStart = true,
     AutoPlayZombies = true,
-    AutoUpgrade = true,
+    AutoUpgrade = false,
     AutoPriority = true,
-    AutoSkill = true,
+    AutoSkill = false,
     MysteryBoxSpam = true,
     AutoBuyModifiers = true
 }
@@ -165,7 +165,24 @@ task.spawn(function()
             
             -- 2. Auto Priority (กดเปลี่ยนเป้าหมายแค่ครั้งเดียว)
             if Config.AutoPriority and not ProcessedUnits.Priority[uid] then
-                pcall(function() Networking.UnitEvent:FireServer("ChangePriority", uid, "Bosses") end)
+                pcall(function()
+                    local targetPriority = "First" -- ค่าเริ่มต้นให้ตี First หมดทุกตัว
+                    
+                    -- เช็คว่าเป็น Warlord (Shanks) หรือไม่ เพื่อเปลี่ยนเป็น Closest
+                    local unitFolder = workspace.Units:FindFirstChild(uid)
+                    if unitFolder then
+                        -- ปกติเกมมักจะใส่ Model ตัวละครไว้ข้างในโฟลเดอร์ UID อีกที
+                        for _, child in pairs(unitFolder:GetChildren()) do
+                            if string.find(child.Name, "Warlord") then
+                                targetPriority = "Closest"
+                                break
+                            end
+                        end
+                    end
+                    
+                    -- ส่งคำสั่งเปลี่ยนเป้าหมายไปที่เซิร์ฟเวอร์
+                    Networking.UnitEvent:FireServer("ChangePriority", uid, targetPriority)
+                end)
                 ProcessedUnits.Priority[uid] = true -- จำไว้ว่าเคยกดแล้ว
             end
             
