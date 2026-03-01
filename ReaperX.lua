@@ -10,9 +10,9 @@ local Config = {
     AutoCreate = true,
     AutoStart = true,
     AutoPlayZombies = true,
-    AutoUpgrade = false,
+    AutoUpgrade = true,
     AutoPriority = true,
-    AutoSkill = false,
+    AutoSkill = true,
     MysteryBoxSpam = true,
     AutoBuyModifiers = true
 }
@@ -40,7 +40,8 @@ local UnitDatabase = {
     ["Armored Mage (Requip)"] = "358:Evolved",
     ["Lich King (Ruler)"] = 338,
     ["Iscanur (Pride)"] = 270,
-    ["Koguro (Unsealed)"] = 235
+    ["Koguro (Unsealed)"] = 235,
+    ["Ice Queen (Release)"] = 363
 }
 
 local ModifiersToBuy = {
@@ -137,7 +138,6 @@ local function GetAllMyUnitUIDs()
     end)
     return uids
 end
-
 ---------------------------------------------------------------------------
 -- [4] Background Tasks (Auto Upgrade, Priority, Skills & Defense)
 ---------------------------------------------------------------------------
@@ -168,7 +168,8 @@ task.spawn(function()
                     if string.find(child.Name, "Warlord") or 
                        string.find(child.Name, "Koguro") or 
                        string.find(child.Name, "Trash Gamer") or 
-                       string.find(child.Name, "Lich King") then
+                       string.find(child.Name, "Lich King") or
+                       string.find(child.Name, "Ice Queen") then
                         unitName = child.Name
                         break
                     end
@@ -195,14 +196,14 @@ task.spawn(function()
             if Config.AutoSkill and unitName ~= "" then
                 pcall(function()
                     if string.find(unitName, "Koguro") then
-                        -- วนสลับโดเมนให้ Koguro [cite: 1]
-                        Networking.Units["Update 6.5"].Koguro_DomainEvent:FireServer("ActivateDomain", KoguroDomains[domainIndex], uid) [cite: 1]
+                        -- วนสลับโดเมนให้ Koguro
+                        Networking.Units["Update 6.5"].Koguro_DomainEvent:FireServer("ActivateDomain", KoguroDomains[domainIndex], uid)
                         
                     elseif string.find(unitName, "Trash Gamer") then
-                        -- สวมใส่สกิลให้ Trash Gamer ทำครั้งเดียว [cite: 2]
+                        -- สวมใส่สกิลให้ Trash Gamer ทำครั้งเดียว
                         if not ProcessedUnits.EquipSkill[uid] then
-                            Networking.Units["Update 10.5"].EquipSkill:FireServer(uid, "Primary", 3) [cite: 2]
-                            Networking.Units["Update 10.5"].EquipSkill:FireServer(uid, "Secondary", 3) [cite: 2]
+                            Networking.Units["Update 10.5"].EquipSkill:FireServer(uid, "Primary", 3)
+                            Networking.Units["Update 10.5"].EquipSkill:FireServer(uid, "Secondary", 3)
                             ProcessedUnits.EquipSkill[uid] = true
                         end
                         
@@ -210,9 +211,13 @@ task.spawn(function()
                         hasLichKing = true -- เจอ Lich King แล้ว
                         local wave = GetWave()
                         if wave > 0 and wave % 10 == 0 then
-                            -- ใช้สกิลไม้ตายเฉพาะเวฟบอส 
-                            Networking.AbilityEvent:FireServer("Activate", uid, "The Goal of All Life is Death") [cite: 3]
+                            -- ใช้สกิลไม้ตายเฉพาะเวฟบอส
+                            Networking.AbilityEvent:FireServer("Activate", uid, "The Goal of All Life is Death")
                         end
+                        
+                    elseif string.find(unitName, "Ice Queen") then
+                        -- ใช้สกิลแช่แข็ง Frozen World ของ Ice Queen
+                        Networking.AbilityEvent:FireServer("Activate", uid, "Frozen World")
                     end
                 end)
             end
@@ -222,10 +227,15 @@ task.spawn(function()
         -- สลับโดเมน Koguro รอบถัดไป
         domainIndex = domainIndex >= 3 and 1 or domainIndex + 1
 
-        -- เซ็ตคาถาเวทมนตร์ให้ Lich King (ทำเมื่อมี Lich King บนบอร์ดเท่านั้น) 
+        -- เซ็ตคาถาเวทมนตร์ให้ Lich King (ทำเมื่อมี Lich King บนบอร์ดเท่านั้น)
         if Config.AutoSkill and hasLichKing and not Progress.LichSpellsConfirmed then
             pcall(function()
-                Networking.Units["Update 9.5"].ConfirmLichSpells:FireServer({{8, 13, 2, 17}}) [cite: 3]
+                -- [[ ข้อมูลเวทมนตร์ Lich King ]]
+                -- 8=Greater Heal, 9=Astral Smite, 12=Paralysis, 13=Grasp Heart, 2=Create Greater Undead, 3=Supreme Summoning
+                -- 16=Cyclone, 17=Greater Magic Shield, 18=Water Sword, 19=Acid Rain, 6=Nuclear Blast, 7=Creation
+                -- 10=Ray of Negative Energy, 11=Black Hole, 20=Fireball, 21=Apocalypse, 4=Aura Of Despair
+                -- 5=Aura Of the Overload, 14=Haste, 15=Rage, 1=Undead Control
+                Networking.Units["Update 9.5"].ConfirmLichSpells:FireServer({{8, 13, 2, 17}})
                 Progress.LichSpellsConfirmed = true
             end)
         end
@@ -386,9 +396,7 @@ task.spawn(function()
                     for i = 1, 6 do
                         local slot = LocalPlayer.PlayerGui.Hotbar.Main.Units[tostring(i)]
                         if slot and slot.UnitTemplate.Container.Holder.Main:FindFirstChild("UnitName") then
-                            local unitName = slot.UnitTemplate.Container.Holder.Main.UnitName.Text
-                            if unitName == "IceQueen(Release)" then continue end 
-                            
+                            local unitName = slot.UnitTemplate.Container.Holder.Main.UnitName.Text                            
                             if UnitDatabase[unitName] and unitName ~= "Sprintwagon" and unitName ~= "Takaroda" and unitName ~= "Rabbit Hero (Guts)" then
                                 local randomPos = SpamCoords[math.random(1, #SpamCoords)]
                                 local unitsBefore = #workspace.Units:GetChildren()
