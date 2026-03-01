@@ -107,8 +107,10 @@ end
 
 local function GetMoney()
     local success, text = pcall(function() return LocalPlayer.PlayerGui.Hotbar.Main.Yen.Text end)
-    print("Raw Money Text:", text) -- Debug: ดูข้อความดิบที่ได้มา
-    return (success and text) and (tonumber(string.gsub(text, "[^%d]", "")) or 0) or 0
+    if not success or not text then return 0 end
+    
+    local cleanText = string.gsub(text, "[^%d]", "") -- ลบตัวอักษรทิ้ง เหลือแต่ "17440"
+    return tonumber(cleanText) or 0 -- แปลงเป็นตัวเลขปกติ
 end
 
 local function Interact(prompt)
