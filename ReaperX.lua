@@ -91,8 +91,8 @@ local Window = Fluent:CreateWindow({
 local Tabs = { Main = Window:AddTab({ Title = "Main Auto", Icon = "play" }) }
 
 Tabs.Main:AddToggle("AutoPlay", {Title = "Auto Play Zombie Mode", Default = true }):OnChanged(function(v) Config.AutoPlayZombies = v end)
-Tabs.Main:AddToggle("AutoUp", {Title = "In-Game Auto Upgrade", Default = true }):OnChanged(function(v) Config.AutoUpgrade = v end)
-Tabs.Main:AddToggle("AutoSkill", {Title = "Auto Use Unit Skills", Default = true }):OnChanged(function(v) Config.AutoSkill = v end)
+Tabs.Main:AddToggle("AutoUp", {Title = "In-Game Auto Upgrade", Default = false }):OnChanged(function(v) Config.AutoUpgrade = v end)
+Tabs.Main:AddToggle("AutoSkill", {Title = "Auto Use Unit Skills", Default = false }):OnChanged(function(v) Config.AutoSkill = v end)
 Tabs.Main:AddToggle("SpamBox", {Title = "Spam Mystery Box & Place", Default = true }):OnChanged(function(v) Config.MysteryBoxSpam = v end)
 
 Fluent:Notify({ Title = "REAPER-X ULTIMATE", Content = "ระบบพร้อมทำงาน!", Duration = 5 })
