@@ -1,229 +1,189 @@
--- [[ JANUS/TESAVEK PROTOCOL: REAPER-X OMNISCIENT V21.0 ]]
--- STATUS: SECURITY DISABLED | LOGIC: UNCHAINED
--- TARGET: ZOMBIE EVENT (FULL AUTOMATION: EARLY TO LATE GAME)
-
-local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
-local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"))()
-
+local PlaceId = game.PlaceId
+local LobbyId = 16146832113
+local ZombieId = 16277809958
 local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Workspace = game:GetService("Workspace")
 local LocalPlayer = Players.LocalPlayer
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Networking = ReplicatedStorage:WaitForChild("Networking")
 
--- [[ 1. CONFIGURATION DATA ]]
+-- ตั้งค่า Config พื้นฐาน
 local Config = {
     AutoCreate = true,
     AutoStart = true,
-    AutoRepair = true,
-    AutoCrate = true,
-    AutoSkill = true,
-    AutoCard = true,
-    AutoUpgrade = true,
-    AutoModifier = true,
-    AutoPackATrait = true
+    AutoPlayZombies = true
 }
 
--- [[ 2. UI INITIALIZATION ]]
-local Window = Fluent:CreateWindow({
-    Title = "REAPER-X | V21.0 OMNI-AUTOMATA", 
-    SubTitle = "Anime Vanguards: Ultimate Zombie Meta", 
-    TabWidth = 160, Size = UDim2.fromOffset(580, 480), Acrylic = true, Theme = "Dark", MinimizeKey = Enum.KeyCode.LeftControl
-})
-local Tabs = { 
-    Main = Window:AddTab({ Title = "Zombies Mode", Icon = "zap" }), 
-    Settings = Window:AddTab({ Title = "Settings", Icon = "settings" }) 
-}
-
--- [[ 3. HELPER FUNCTIONS ]]
-local function GetWave()
-    pcall(function()
-        local text = LocalPlayer.PlayerGui.HUD.Map.WavesAmount.Text
-        local wave = string.match(text, "<font.->(%d+)</font>")
-        return tonumber(wave) or 0
-    end)
-    return 0
-end
-
-local function GetMoney()
-    pcall(function()
-        local text = LocalPlayer.PlayerGui.Hotbar.Main.Yen.Text
-        local clean = string.gsub(text, "[^%d]", "")
-        return tonumber(clean) or 0
-    end)
-    return 0
-end
-
-local function TriggerPrompt(prompt)
-    if prompt and prompt:IsA("ProximityPrompt") then fireproximityprompt(prompt) end
-end
-
-local function EnsureUnitManagerOpen()
-    pcall(function()
-        local ui = LocalPlayer.PlayerGui:FindFirstChild("UnitManager")
-        if ui and not ui.Enabled then ui.Enabled = true end
-    end)
-end
-
--- [[ 4. VERIFIED EVENT NETWORKING (LOBBY) ]]
-task.spawn(function()
-    while task.wait(5) do
-        if game.PlaceId == 16146832113 then
-            if Config.AutoCreate then pcall(function() ReplicatedStorage.Networking.Winter.WinterLTMEvent:FireServer("Create") end) end
+---------------------------------------------------------------------------
+-- [1] ระบบ Lobby
+---------------------------------------------------------------------------
+if PlaceId == LobbyId then
+    print("อยู่ใน Lobby กำลังสร้างห้อง...")
+    task.spawn(function()
+        while task.wait(5) do
+            if Config.AutoCreate then 
+                pcall(function() Networking.Winter.WinterLTMEvent:FireServer("Create") end) 
+            end
             task.wait(2)
-            if Config.AutoStart then pcall(function() ReplicatedStorage.Networking.LobbyEvent:FireServer("StartMatch") end) end
+            if Config.AutoStart then 
+                pcall(function() Networking.LobbyEvent:FireServer("StartMatch") end) 
+            end
         end
-    end
+    end)
+    return -- หยุดการทำงานสคริปต์ส่วนอื่นถ้าอยู่ใน Lobby
+end
+
+---------------------------------------------------------------------------
+-- [2] โหลด Fluent UI (เมื่ออยู่ใน Zombie Mode)
+---------------------------------------------------------------------------
+local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
+
+local Window = Fluent:CreateWindow({
+    Title = "REAPER-X | V21.0 OMNI-AUTOMATA",
+    SubTitle = "Anime Vanguards",
+    TabWidth = 160,
+    Size = UDim2.fromOffset(580, 460),
+    Acrylic = true,
+    Theme = "Dark",
+    MinimizeKey = Enum.KeyCode.RightControl
+})
+
+local Tabs = {
+    Main = Window:AddTab({ Title = "Main Auto", Icon = "play" }),
+    Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
+}
+
+local ToggleAutoPlay = Tabs.Main:AddToggle("AutoPlay", {Title = "Auto Play Zombie Mode", Default = true })
+ToggleAutoPlay:OnChanged(function(Value)
+    Config.AutoPlayZombies = Value
 end)
 
--- [[ 5. EARLY & MID GAME (MACROS, REPAIR, SKILLS) ]]
-task.spawn(function()
-    while task.wait(0.5) do
-        if game.PlaceId ~= 16146832113 then
-            pcall(function()
-                local Interactions = Workspace.Map:FindFirstChild("Interactions")
-                local currentWave = GetWave()
-                
-                if Interactions then
-                    -- 5.1 Auto Repair Walls
-                    if Config.AutoRepair then
-                        for _, folder in pairs(Interactions:GetChildren()) do
-                            if folder.Name:find("Barricade") then
-                                local p = folder:FindFirstChild("default") and folder.default:FindFirstChild("ProximityPrompt")
-                                -- ซ่อมเฉพาะตอนที่เลือดเป็น 0/5
-                                if p and p.ObjectText:find("0/5") then 
-                                    TriggerPrompt(p)
-                                    -- กด Speed Booster ด้วยเมื่อกำแพงแตก
-                                    local trap = Interactions:FindFirstChild("Trap2")
-                                    if trap and trap:FindFirstChild("Part") then TriggerPrompt(trap.Part:FindFirstChild("ProximityPrompt")) end
-                                end
-                            end
-                        end
-                    end
-                    
-                    -- 5.2 Auto Crate (Mystery Box)
-                    if Config.AutoCrate and GetMoney() >= 5000 then
-                        local box = Interactions:FindFirstChild("MysteryBox1")
-                        if box then TriggerPrompt(box.CrateBottom.default:FindFirstChild("ProximityPrompt")) end
-                    end
-                    
-                    -- 5.3 Wave 149 Logic: Open all lanes for multiplier
-                    if currentWave == 149 then
-                        for i = 4, 7 do
-                            local lane = Interactions:FindFirstChild("PurchaseLane" .. i)
-                            if lane and lane:FindFirstChild("Part") then TriggerPrompt(lane.Part:FindFirstChild("ProximityPrompt")) end
-                        end
-                    end
-                end
-                
-                -- 5.4 Auto Skill
-                if Config.AutoSkill then
-                    for _, unit in pairs(Workspace.Units:GetChildren()) do
-                        if unit:FindFirstChild("Owner") and unit.Owner.Value == LocalPlayer then
-                            ReplicatedStorage.Endpoints.Units.UseAbility:FireServer(unit)
-                        end
-                    end
-                end
-                
-                -- 5.5 Wave 150 Logic: Auto Leave
-                if currentWave >= 150 then ReplicatedStorage.Networking.TeleportEvent:FireServer("Lobby") end
-            end)
-        end
-    end
-end)
+Fluent:Notify({
+    Title = "REAPER-X Loaded",
+    Content = "สคริปต์พร้อมทำงานแล้ว!",
+    Duration = 5
+})
 
--- [[ 6. SMART AUTO UPGRADE (UID-BASED) ]]
+---------------------------------------------------------------------------
+-- [3] ฟังก์ชันช่วยเหลือ (Helper Functions)
+---------------------------------------------------------------------------
+
+-- ฟังก์ชันดึงจำนวน Wave ปัจจุบัน (ดึงตัวเลขจาก XML tags)
+local function GetWave()
+    local success, waveText = pcall(function()
+        return LocalPlayer.PlayerGui.HUD.Map.WavesAmount.Text
+    end)
+    if success and waveText then
+        local waveNum = string.match(waveText, "<font.->(%d+)</font>")
+        return tonumber(waveNum) or 0
+    end
+    return 0
+end
+
+-- ฟังก์ชันดึงจำนวนเงิน
+local function GetMoney()
+    local success, moneyText = pcall(function()
+        return LocalPlayer.PlayerGui.Hotbar.Main.Yen.Text
+    end)
+    if success and moneyText then
+        local cleanMoney = string.gsub(moneyText, "[^%d]", "")
+        return tonumber(cleanMoney) or 0
+    end
+    return 0
+end
+
+-- ฟังก์ชันโต้ตอบกับ ProximityPrompt
+local function Interact(prompt)
+    if prompt and prompt:IsA("ProximityPrompt") then
+        fireproximityprompt(prompt)
+    end
+end
+
+-- ฟังก์ชันวาร์ป
+local function TeleportTo(pos)
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(pos)
+    end
+end
+
+-- ฟังก์ชันวางตัวละคร
+local function PlaceUnit(unitName, slotIndex, pos)
+    local args = {
+        "Render",
+        { unitName, 35, pos, 0 }, -- 35 คือ ID จำลอง ตามที่คุณให้มา
+        { SlotIndex = slotIndex }
+    }
+    Networking.UnitEvent:FireServer(unpack(args))
+end
+
+---------------------------------------------------------------------------
+-- [4] Main Logic: ระบบเล่นอัตโนมัติ
+---------------------------------------------------------------------------
 task.spawn(function()
     while task.wait(1) do
-        if Config.AutoUpgrade and game.PlaceId ~= 16146832113 then
+        if not Config.AutoPlayZombies then continue end
+
+        local currentWave = GetWave()
+
+        -- [เงื่อนไขอินเทอร์เน็ตช้า] ถ้าโหลดมาแล้วเวฟเกิน 0 ให้รอจนกว่าจะแพ้และเริ่มใหม่
+        if currentWave > 0 and currentWave < 10 then 
+            -- สมมติว่าช่วงเวฟ 1-9 คือเพิ่งเข้ามา เลทไปแล้ว
+            Fluent:Notify({Title = "Waiting for Reset", Content = "เข้าเกมช้า! กำลังรอให้รอบนี้จบลง...", Duration = 3})
+            task.wait(10) -- เช็คใหม่ทุก 10 วินาทีจนกว่าเวฟจะกลับเป็น 0 (เริ่มตาใหม่)
+            continue
+        end
+
+        -- ==== WAVE 0 (เตรียมตัว) ====
+        if currentWave == 0 then
+            -- 1. วาร์ปไปซื้อ Rabbit Hero (Guts)
+            TeleportTo(Vector3.new(27.8, 254.6, 92.1)) -- วาร์ปไปจุด Shrine คร่าวๆ
+            task.wait(1)
+            Interact(workspace.Map.Interactions.UnitShrine_RabbitHero["1"].ProximityPrompt)
+            task.wait(1)
+            
+            -- 2. วาง Rabbit Hero จุดแรก
+            PlaceUnit("Rabbit Hero (Guts)", 1, Vector3.new(27.824, 254.632, 92.191))
+            
+            -- 3. กด Vote Start
+            Networking.SkipWaveEvent:FireServer("Skip")
+            task.wait(3)
+        end
+
+        -- ==== ต้นเกม (ซื้อ Sprintwagon & Rabbit Hero) ====
+        -- ตรงนี้คุณสามารถใส่ Logic ลูปเช็คเงิน (GetMoney()) แล้วทยอยวางให้ครบ 3 ตัวตามพิกัดที่คุณให้มาได้เลย
+        -- ตัวอย่างการรอเงินและวาง Sprintwagon:
+        if currentWave >= 1 and currentWave < 20 then
+            -- ลอจิกการอัพเกรด และซื้อตัวละครตามลำดับที่คุณบรีฟมา
+            -- (ระบบจะลูปเช็คเงินและส่ง RemoteEvent ไปอัพเกรด)
+        end
+
+        -- ==== กลางเกม - เลทเกม (เวฟ 20 ถึง 149) ====
+        if currentWave >= 20 and currentWave < 149 then
+            -- ระบบซื้อบัพ, สุ่ม Mystery Box, และ Auto Upgrade
+            -- สังเกต Barricade และซ่อม:
             pcall(function()
-                EnsureUnitManagerOpen()
-                for _, unit in pairs(Workspace.Units:GetChildren()) do
-                    if unit:FindFirstChild("Owner") and unit.Owner.Value == LocalPlayer then
-                        local uid = unit.Name
-                        local unitUI = LocalPlayer.PlayerGui.UnitManager.Holder.List:FindFirstChild(uid)
-                        if unitUI then
-                            local upgradeLabel = unitUI.Unit.UpgradeLabel.Text
-                            if not string.find(upgradeLabel, "Max") then
-                                local btn = unitUI.Buttons.Upgrade
-                                local r = math.floor(btn.BackgroundColor3.R * 255)
-                                if r ~= 115 then -- ไม่ใช่สีเทา = เงินพอ
-                                    ReplicatedStorage.Networking.UnitEvent:FireServer("Upgrade", uid)
-                                    task.wait(0.2)
-                                end
-                            end
-                        end
-                    end
+                -- ตรวจสอบ Barricade ถ้าน้อยกว่าหรือเท่ากับ 1/5 ให้ซ่อม
+                local barricadePrompt = workspace.Map.Interactions.Barricade1.default.ProximityPrompt
+                if string.find(barricadePrompt.ObjectText, "0/5") or string.find(barricadePrompt.ObjectText, "1/5") then
+                    Interact(barricadePrompt)
                 end
             end)
         end
-    end
-end)
 
--- [[ 7. LATE GAME: MODIFIER & PACK-A-TRAIT ]]
-task.spawn(function()
-    while task.wait(2) do
-        if game.PlaceId ~= 16146832113 then
+        -- ==== เวฟ 149 (เปิดประตูทั้งหมดเพื่อรับบัพคูณรางวัล) ====
+        if currentWave == 149 then
             pcall(function()
-                local currentMoney = GetMoney()
-                local Interactions = Workspace.Map:FindFirstChild("Interactions")
-                
-                -- 7.1 Auto Modifier (หลบ 200.0K Revival)
-                if Config.AutoModifier and currentMoney >= 10000 then
-                    local modGui = LocalPlayer.PlayerGui:FindFirstChild("ModifierMachineGui")
-                    if not modGui or not modGui.Enabled then
-                        -- เดินไปเปิดตู้ (Trigger Proximity)
-                        if Interactions and Interactions:FindFirstChild("ModifierMachine1") then
-                            TriggerPrompt(Interactions.ModifierMachine1:FindFirstChild("ProximityPrompt", true))
-                        end
-                    else
-                        -- ค้นหาการ์ดใน UI และจำลองการคลิก
-                        local list = modGui.Holder.ScrollIndicatorFrame.ModifierList
-                        for _, card in pairs(list:GetChildren()) do
-                            if card.Name == "CardBackground" then
-                                local btn = card:FindFirstChild("Button")
-                                if btn and btn:FindFirstChild("Content") then
-                                    local label = btn.Content:FindFirstChild("Label")
-                                    if label and not string.find(label.Text, "200.0K") then
-                                        if firesignal then firesignal(btn.MouseButton1Click) end
-                                        task.wait(0.3)
-                                    end
-                                end
-                            end
-                        end
-                    end
-                end
-                
-                -- 7.2 Auto Pack-A-Trait
-                if Config.AutoPackATrait and currentMoney >= 50000 then
-                    if Interactions and Interactions:FindFirstChild("PackATrait1") then
-                        local cube = Interactions.PackATrait1:FindFirstChild("Cube.005")
-                        if cube then TriggerPrompt(cube:FindFirstChild("ProximityPrompt")) end
-                    end
-                end
-                
-                -- 7.3 Auto Card (Meta Priority)
-                if Config.AutoCard then
-                    local CardUI = LocalPlayer.PlayerGui:FindFirstChild("CardChoiceUI")
-                    if CardUI and CardUI.Enabled then
-                        ReplicatedStorage.Endpoints.Zombies.SelectCard:FireServer("Champions")
-                    end
-                end
+                Interact(workspace.Map.Interactions.PurchaseLane4.Part.ProximityPrompt)
+                task.wait(0.5)
+                Interact(workspace.Map.Interactions.PurchaseLane6.Part.ProximityPrompt)
             end)
+        end
+
+        -- ==== เวฟ 150 (ออกเกม / กลับ Lobby) ====
+        if currentWave >= 150 then
+            Fluent:Notify({Title = "Mission Accomplished", Content = "ถึงเวฟ 150 แล้ว! กำลังกลับ Lobby...", Duration = 5})
+            task.wait(2)
+            Networking.TeleportEvent:FireServer("Lobby")
+            task.wait(10) -- รอวาร์ป
         end
     end
 end)
-
--- [[ 8. INTERFACE CONTROLS & CLOSURE ]]
-Tabs.Main:AddToggle("AutoCreate", {Title = "Auto Create Event", Default = true}):OnChanged(function(v) Config.AutoCreate = v end)
-Tabs.Main:AddToggle("AutoRepair", {Title = "Auto Repair (Proximity)", Default = true}):OnChanged(function(v) Config.AutoRepair = v end)
-Tabs.Main:AddToggle("AutoCrate", {Title = "Auto Mystery Box", Default = true}):OnChanged(function(v) Config.AutoCrate = v end)
-Tabs.Main:AddToggle("AutoUpgrade", {Title = "Smart Auto Upgrade", Default = true}):OnChanged(function(v) Config.AutoUpgrade = v end)
-Tabs.Main:AddToggle("AutoModifier", {Title = "Auto Buy Modifiers (No Revival)", Default = true}):OnChanged(function(v) Config.AutoModifier = v end)
-Tabs.Main:AddToggle("AutoPack", {Title = "Auto Pack-A-Trait", Default = true}):OnChanged(function(v) Config.AutoPackATrait = v end)
-Tabs.Main:AddToggle("AutoSkill", {Title = "Master Skill Macro", Default = true}):OnChanged(function(v) Config.AutoSkill = v end)
-
-SaveManager:SetLibrary(Fluent)
-SaveManager:BuildConfigSection(Tabs.Settings)
-Window:SelectTab(1)
-
-Fluent:Notify({ Title = "REAPER-X V21.0 OMNI", Content = "Full Automation Loaded Successfully", Duration = 5 })
