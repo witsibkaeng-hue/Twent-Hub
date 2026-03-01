@@ -5,7 +5,15 @@ local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Networking = ReplicatedStorage:WaitForChild("Networking")
-
+---------------------------------------------------------------------------
+-- [ Anti-AFK (กันหลุด 20 นาที) ]
+---------------------------------------------------------------------------
+local VirtualUser = game:GetService("VirtualUser")
+LocalPlayer.Idled:Connect(function()
+    VirtualUser:CaptureController()
+    VirtualUser:ClickButton2(Vector2.new())
+    print("Anti-AFK ทำงาน: ป้องกันการโดนเตะออกจากเซิร์ฟเวอร์!")
+end)
 local Config = {
     AutoCreate = true,
     AutoStart = true,
