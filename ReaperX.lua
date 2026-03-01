@@ -145,7 +145,6 @@ task.spawn(function()
     local KoguroDomains = {"Fire", "Ice", "Sand"}
     local domainIndex = 1
     
-    -- ระบบความจำ: จดจำ UID ที่เคยเซ็ตค่าไปแล้ว จะได้ไม่กดซ้ำ
     local ProcessedUnits = {
         Upgrade = {},
         Priority = {},
@@ -155,54 +154,65 @@ task.spawn(function()
     while task.wait(3) do
         if not Config.AutoPlayZombies then continue end
         local uids = GetAllMyUnitUIDs()
+        
+        local hasLichKing = false -- เอาไว้เช็คว่าต้องยืนยันคาถาไหม
 
         for _, uid in pairs(uids) do
-            -- 1. Auto Upgrade (กด Toggle แค่ครั้งเดียวต่อ 1 ตัวละคร)
+            -- หาชื่อโมเดลตัวละครจากโฟลเดอร์ UID
+            local unitFolder = workspace.Units:FindFirstChild(uid)
+            local unitName = ""
+            
+            if unitFolder then
+                for _, child in pairs(unitFolder:GetChildren()) do
+                    -- เช็คหาชื่อตัวละครที่เราตั้งเงื่อนไขพิเศษไว้
+                    if string.find(child.Name, "Warlord") or 
+                       string.find(child.Name, "Koguro") or 
+                       string.find(child.Name, "Trash Gamer") or 
+                       string.find(child.Name, "Lich King") then
+                        unitName = child.Name
+                        break
+                    end
+                end
+            end
+
+            -- 1. Auto Upgrade
             if Config.AutoUpgrade and not ProcessedUnits.Upgrade[uid] then
                 pcall(function() Networking.Units.AutoUpgradeEvent:FireServer("Toggle", uid) end)
-                ProcessedUnits.Upgrade[uid] = true -- จำไว้ว่าเคยกดแล้ว
+                ProcessedUnits.Upgrade[uid] = true
             end
             
-            -- 2. Auto Priority (กดเปลี่ยนเป้าหมายแค่ครั้งเดียว)
+            -- 2. Auto Priority
             if Config.AutoPriority and not ProcessedUnits.Priority[uid] then
                 pcall(function()
-                    local targetPriority = "First" -- ค่าเริ่มต้นให้ตี First หมดทุกตัว
-                    
-                    -- เช็คว่าเป็น Warlord (Shanks) หรือไม่ เพื่อเปลี่ยนเป็น Closest
-                    local unitFolder = workspace.Units:FindFirstChild(uid)
-                    if unitFolder then
-                        -- ปกติเกมมักจะใส่ Model ตัวละครไว้ข้างในโฟลเดอร์ UID อีกที
-                        for _, child in pairs(unitFolder:GetChildren()) do
-                            if string.find(child.Name, "Warlord") then
-                                targetPriority = "Closest"
-                                break
-                            end
-                        end
-                    end
-                    
-                    -- ส่งคำสั่งเปลี่ยนเป้าหมายไปที่เซิร์ฟเวอร์
+                    -- ถ้าชื่อมีคำว่า Warlord ให้เป็น Closest ถ้าไม่ใช่ให้เป็น First
+                    local targetPriority = string.find(unitName, "Warlord") and "Closest" or "First"
                     Networking.UnitEvent:FireServer("ChangePriority", uid, targetPriority)
                 end)
-                ProcessedUnits.Priority[uid] = true -- จำไว้ว่าเคยกดแล้ว
+                ProcessedUnits.Priority[uid] = true
             end
             
-            -- 3. Auto Skills
-            if Config.AutoSkill then
+            -- 3. Auto Skills (เช็คชื่อก่อนยิงสกิล)
+            if Config.AutoSkill and unitName ~= "" then
                 pcall(function()
-                    -- Koguro Domain (สลับเรื่อยๆ ไม่ต้องล็อกเพราะต้องวนโดเมน)
-                    Networking.Units["Update 6.5"].Koguro_DomainEvent:FireServer("ActivateDomain", KoguroDomains[domainIndex], uid)
-                    
-                    -- Trash Gamer (สวมใส่สกิล ทำแค่ครั้งเดียวพอ)
-                    if not ProcessedUnits.EquipSkill[uid] then
-                        Networking.Units["Update 10.5"].EquipSkill:FireServer(uid, "Primary", 3)
-                        Networking.Units["Update 10.5"].EquipSkill:FireServer(uid, "Secondary", 3)
-                        ProcessedUnits.EquipSkill[uid] = true
-                    end
-                    
-                    -- Lich King (เปิด The Goal of All Life is Death ตอนเวฟบอส)
-                    local wave = GetWave()
-                    if wave > 0 and wave % 10 == 0 then
-                        Networking.AbilityEvent:FireServer("Activate", uid, "The Goal of All Life is Death")
+                    if string.find(unitName, "Koguro") then
+                        -- วนสลับโดเมนให้ Koguro [cite: 1]
+                        Networking.Units["Update 6.5"].Koguro_DomainEvent:FireServer("ActivateDomain", KoguroDomains[domainIndex], uid) [cite: 1]
+                        
+                    elseif string.find(unitName, "Trash Gamer") then
+                        -- สวมใส่สกิลให้ Trash Gamer ทำครั้งเดียว [cite: 2]
+                        if not ProcessedUnits.EquipSkill[uid] then
+                            Networking.Units["Update 10.5"].EquipSkill:FireServer(uid, "Primary", 3) [cite: 2]
+                            Networking.Units["Update 10.5"].EquipSkill:FireServer(uid, "Secondary", 3) [cite: 2]
+                            ProcessedUnits.EquipSkill[uid] = true
+                        end
+                        
+                    elseif string.find(unitName, "Lich King") then
+                        hasLichKing = true -- เจอ Lich King แล้ว
+                        local wave = GetWave()
+                        if wave > 0 and wave % 10 == 0 then
+                            -- ใช้สกิลไม้ตายเฉพาะเวฟบอส 
+                            Networking.AbilityEvent:FireServer("Activate", uid, "The Goal of All Life is Death") [cite: 3]
+                        end
                     end
                 end)
             end
@@ -212,10 +222,10 @@ task.spawn(function()
         -- สลับโดเมน Koguro รอบถัดไป
         domainIndex = domainIndex >= 3 and 1 or domainIndex + 1
 
-        -- เซ็ตเวทมนตร์ให้ Lich King (รันครั้งเดียวพอ)
-        if Config.AutoSkill and not Progress.LichSpellsConfirmed then
+        -- เซ็ตคาถาเวทมนตร์ให้ Lich King (ทำเมื่อมี Lich King บนบอร์ดเท่านั้น) 
+        if Config.AutoSkill and hasLichKing and not Progress.LichSpellsConfirmed then
             pcall(function()
-                Networking.Units["Update 9.5"].ConfirmLichSpells:FireServer({{8, 13, 2, 17}})
+                Networking.Units["Update 9.5"].ConfirmLichSpells:FireServer({{8, 13, 2, 17}}) [cite: 3]
                 Progress.LichSpellsConfirmed = true
             end)
         end
