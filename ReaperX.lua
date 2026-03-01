@@ -91,8 +91,8 @@ local Window = Fluent:CreateWindow({
 local Tabs = { Main = Window:AddTab({ Title = "Main Auto", Icon = "play" }) }
 
 Tabs.Main:AddToggle("AutoPlay", {Title = "Auto Play Zombie Mode", Default = true }):OnChanged(function(v) Config.AutoPlayZombies = v end)
-Tabs.Main:AddToggle("AutoUp", {Title = "In-Game Auto Upgrade", Default = false }):OnChanged(function(v) Config.AutoUpgrade = v end)
-Tabs.Main:AddToggle("AutoSkill", {Title = "Auto Use Unit Skills", Default = false }):OnChanged(function(v) Config.AutoSkill = v end)
+Tabs.Main:AddToggle("AutoUp", {Title = "In-Game Auto Upgrade", Default = true }):OnChanged(function(v) Config.AutoUpgrade = v end)
+Tabs.Main:AddToggle("AutoSkill", {Title = "Auto Use Unit Skills", Default = true }):OnChanged(function(v) Config.AutoSkill = v end)
 Tabs.Main:AddToggle("SpamBox", {Title = "Spam Mystery Box & Place", Default = true }):OnChanged(function(v) Config.MysteryBoxSpam = v end)
 
 Fluent:Notify({ Title = "REAPER-X ULTIMATE", Content = "ระบบพร้อมทำงาน!", Duration = 5 })
@@ -248,7 +248,6 @@ task.spawn(function()
         end
     end
 end)
-
 ---------------------------------------------------------------------------
 -- [5] Main Logic Loop
 ---------------------------------------------------------------------------
@@ -261,11 +260,11 @@ task.spawn(function()
         if not Config.AutoPlayZombies then continue end
         local currentWave = GetWave()
         local money = GetMoney()
-        print("Current Wave:", currentWave, "Money:", money)
+        -- print("Current Wave:", currentWave, "Money:", money)
+
         -- [ เช็ค Standby รอรีเซ็ตเวฟ และรอให้หน้าจอ EndScreen ขึ้น ]
         if currentWave > 0 and currentWave < 10 and not Progress.FirstRabbitPlaced then
             local endScreen = LocalPlayer.PlayerGui:FindFirstChild("EndScreen")
-            -- ถ้า EndScreen ยังไม่โหลด หรือยังไม่ Enabled ให้วนลูปรอต่อไป
             if not (endScreen and endScreen.Enabled) then
                 task.wait(0.2)
                 continue
@@ -276,39 +275,77 @@ task.spawn(function()
         if currentWave == 0 and not Progress.FirstRabbitPlaced then
             TeleportTo(workspace.Map.Interactions.UnitShrine_RabbitHero["1"].Position); task.wait(1)
             Interact(workspace.Map.Interactions.UnitShrine_RabbitHero["1"].ProximityPrompt); task.wait(1)
+            
+            -- นับจำนวนยูนิตก่อนวาง
+            local unitsBefore = #workspace.Units:GetChildren()
             PlaceUnit("Rabbit Hero (Guts)", 1, RabbitCoords[1], UnitDatabase["Rabbit Hero (Guts)"])
-            Progress.FirstRabbitPlaced = true
-            Networking.SkipWaveEvent:FireServer("Skip"); task.wait(3)
-            print("Placed first Rabbit Hero and skipped to wave 1")
+            task.wait(2) -- รอเซิร์ฟเวอร์ประมวลผลการวาง
+            
+            -- เช็คว่ายูนิตเพิ่มขึ้นไหม
+            if #workspace.Units:GetChildren() > unitsBefore then
+                Progress.FirstRabbitPlaced = true
+                Networking.SkipWaveEvent:FireServer("Skip"); task.wait(3)
+                print("Placed first Rabbit Hero successfully and skipped to wave 1")
+            else
+                print("Failed to place Rabbit Hero! Retrying in next loop...")
+            end
         end
 
-        -- [ ต้นเกม: ตั้งบอร์ด (อัปเดตลอจิกใหม่จากคุณ) ]
+        -- [ ต้นเกม: ตั้งบอร์ด ]
         if currentWave >= 1 and currentWave < 20 then
             if Progress.SprintwagonsPlaced < 3 and money >= 1000 then
-                print("Attempting to place Sprintwagon. Currently placed:", Progress.SprintwagonsPlaced)
                 TeleportTo(workspace.Map.Interactions.UnitShrine_Sprintwagon["1"].Position); task.wait(0.5)
                 Interact(workspace.Map.Interactions.UnitShrine_Sprintwagon["1"].ProximityPrompt); task.wait(1)
+                
                 if money >= 550 then
                     local index = Progress.SprintwagonsPlaced + 1
+                    local unitsBefore = #workspace.Units:GetChildren()
                     PlaceUnit("Sprintwagon", 1, SprintwagonCoords[index], UnitDatabase["Sprintwagon"])
-                    Progress.SprintwagonsPlaced = index; task.wait(2)
-                    print("Placed Sprintwagon number:", index)
+                    task.wait(2)
+                    
+                    if #workspace.Units:GetChildren() > unitsBefore then
+                        Progress.SprintwagonsPlaced = index
+                        print("Successfully placed Sprintwagon number:", index)
+                    else
+                        print("Failed to place Sprintwagon number", index, "Retrying...")
+                    end
                 end
+                
             elseif Progress.RabbitsPlaced < 3 and money >= 500 then
                 TeleportTo(workspace.Map.Interactions.UnitShrine_RabbitHero["1"].Position); task.wait(0.5)
                 Interact(workspace.Map.Interactions.UnitShrine_RabbitHero["1"].ProximityPrompt); task.wait(1)
+                
                 if money >= 1200 then
                     local index = Progress.RabbitsPlaced + 1
+                    local unitsBefore = #workspace.Units:GetChildren()
                     PlaceUnit("Rabbit Hero (Guts)", 1, RabbitCoords[index], UnitDatabase["Rabbit Hero (Guts)"])
-                    Progress.RabbitsPlaced = index; task.wait(2)
+                    task.wait(2)
+                    
+                    if #workspace.Units:GetChildren() > unitsBefore then
+                        Progress.RabbitsPlaced = index
+                        print("Successfully placed Rabbit Hero number:", index)
+                    else
+                        print("Failed to place Rabbit Hero number", index, "Retrying...")
+                    end
                 end
+                
             elseif not Progress.SprintwagonsMaxed then
                 if money > 8000 then Progress.SprintwagonsMaxed = true end
+                
             elseif Progress.TakarodaPlaced < 1 then
                 TeleportTo(workspace.Map.Interactions.UnitShrine_Takaroda["1"].Position); task.wait(0.5)
                 Interact(workspace.Map.Interactions.UnitShrine_Takaroda["1"].ProximityPrompt); task.wait(1)
+                
+                local unitsBefore = #workspace.Units:GetChildren()
                 PlaceUnit("Takaroda", 1, Vector3.new(-22.70, 253.16, 49.12), UnitDatabase["Takaroda"])
-                Progress.TakarodaPlaced = 1; task.wait(2)
+                task.wait(2)
+                
+                if #workspace.Units:GetChildren() > unitsBefore then
+                    Progress.TakarodaPlaced = 1
+                    print("Successfully placed Takaroda")
+                else
+                    print("Failed to place Takaroda! Retrying...")
+                end
             end
         end
 
@@ -344,8 +381,13 @@ task.spawn(function()
                             
                             if UnitDatabase[unitName] and unitName ~= "Sprintwagon" and unitName ~= "Takaroda" and unitName ~= "Rabbit Hero (Guts)" then
                                 local randomPos = SpamCoords[math.random(1, #SpamCoords)]
+                                local unitsBefore = #workspace.Units:GetChildren()
                                 PlaceUnit(unitName, i, randomPos, UnitDatabase[unitName])
                                 task.wait(1)
+                                
+                                if #workspace.Units:GetChildren() > unitsBefore then
+                                    print("Successfully spam-placed:", unitName)
+                                end
                             end
                         end
                     end
