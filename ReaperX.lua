@@ -66,37 +66,21 @@ if PlaceId == LobbyId then
 end
 
 ---------------------------------------------------------------------------
--- [2] โหลด Fluent UI แบบ Safe Load (แก้ปัญหา attempt to call a nil value)
+-- [2] โหลด Fluent UI แบบ Safe Load
 ---------------------------------------------------------------------------
 local function LoadUI()
     local success, result = pcall(function()
         return game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua")
     end)
-
-    if not success or type(result) ~= "string" then
-        warn("โหลด UI ไม่สำเร็จ เน็ตอาจจะมีปัญหา: " .. tostring(result))
-        return nil
-    end
-
+    if not success or type(result) ~= "string" then return nil end
     local uiFunc, loadErr = loadstring(result)
-    if type(uiFunc) ~= "function" then
-        warn("โหลด UI มาแล้วแต่รันไม่ได้: " .. tostring(loadErr))
-        return nil
-    end
-
+    if type(uiFunc) ~= "function" then return nil end
     return uiFunc()
 end
 
 local Fluent = LoadUI()
-
--- ถ้าโหลด UI ไม่ติด ให้หยุดการทำงานสคริปต์ไปเลยเพื่อป้องกัน Error ซ้อน
 if not Fluent then
-    -- แจ้งเตือนแบบบ้านๆ แทน
-    game.StarterGui:SetCore("SendNotification", {
-        Title = "REAPER-X ERROR",
-        Text = "โหลด UI ไม่สำเร็จ กรุณาเช็คอินเทอร์เน็ตหรือรันสคริปต์ใหม่ครับ",
-        Duration = 10
-    })
+    game.StarterGui:SetCore("SendNotification", { Title = "REAPER-X ERROR", Text = "โหลด UI ไม่สำเร็จ", Duration = 10 })
     return
 end
 
@@ -106,10 +90,10 @@ local Window = Fluent:CreateWindow({
 })
 local Tabs = { Main = Window:AddTab({ Title = "Main Auto", Icon = "play" }) }
 
-Tabs.Main:AddToggle("AutoPlay", {Title = "Auto Play Zombie Mode", Default = false }):OnChanged(function(v) Config.AutoPlayZombies = v end)
-Tabs.Main:AddToggle("AutoUp", {Title = "In-Game Auto Upgrade", Default = false }):OnChanged(function(v) Config.AutoUpgrade = v end)
-Tabs.Main:AddToggle("AutoSkill", {Title = "Auto Use Unit Skills", Default = false }):OnChanged(function(v) Config.AutoSkill = v end)
-Tabs.Main:AddToggle("SpamBox", {Title = "Spam Mystery Box & Place", Default = false }):OnChanged(function(v) Config.MysteryBoxSpam = v end)
+Tabs.Main:AddToggle("AutoPlay", {Title = "Auto Play Zombie Mode", Default = true }):OnChanged(function(v) Config.AutoPlayZombies = v end)
+Tabs.Main:AddToggle("AutoUp", {Title = "In-Game Auto Upgrade", Default = true }):OnChanged(function(v) Config.AutoUpgrade = v end)
+Tabs.Main:AddToggle("AutoSkill", {Title = "Auto Use Unit Skills", Default = true }):OnChanged(function(v) Config.AutoSkill = v end)
+Tabs.Main:AddToggle("SpamBox", {Title = "Spam Mystery Box & Place", Default = true }):OnChanged(function(v) Config.MysteryBoxSpam = v end)
 
 Fluent:Notify({ Title = "REAPER-X ULTIMATE", Content = "ระบบพร้อมทำงาน!", Duration = 5 })
 
@@ -152,29 +136,52 @@ local function GetAllMyUnitUIDs()
 end
 
 ---------------------------------------------------------------------------
--- [4] Background Tasks
+-- [4] Background Tasks (Auto Upgrade, Priority, Skills & Defense)
 ---------------------------------------------------------------------------
 task.spawn(function()
     local KoguroDomains = {"Fire", "Ice", "Sand"}
     local domainIndex = 1
+    
+    -- ระบบความจำ: จดจำ UID ที่เคยเซ็ตค่าไปแล้ว จะได้ไม่กดซ้ำ
+    local ProcessedUnits = {
+        Upgrade = {},
+        Priority = {},
+        EquipSkill = {}
+    }
 
     while task.wait(3) do
         if not Config.AutoPlayZombies then continue end
         local uids = GetAllMyUnitUIDs()
 
         for _, uid in pairs(uids) do
-            if Config.AutoUpgrade then
+            -- 1. Auto Upgrade (กด Toggle แค่ครั้งเดียวต่อ 1 ตัวละคร)
+            if Config.AutoUpgrade and not ProcessedUnits.Upgrade[uid] then
                 pcall(function() Networking.Units.AutoUpgradeEvent:FireServer("Toggle", uid) end)
+                ProcessedUnits.Upgrade[uid] = true -- จำไว้ว่าเคยกดแล้ว
             end
-            if Config.AutoPriority then
+            
+            -- 2. Auto Priority (กดเปลี่ยนเป้าหมายแค่ครั้งเดียว)
+            if Config.AutoPriority and not ProcessedUnits.Priority[uid] then
                 pcall(function() Networking.UnitEvent:FireServer("ChangePriority", uid, "Bosses") end)
+                ProcessedUnits.Priority[uid] = true -- จำไว้ว่าเคยกดแล้ว
             end
+            
+            -- 3. Auto Skills
             if Config.AutoSkill then
                 pcall(function()
+                    -- Koguro Domain (สลับเรื่อยๆ ไม่ต้องล็อกเพราะต้องวนโดเมน)
                     Networking.Units["Update 6.5"].Koguro_DomainEvent:FireServer("ActivateDomain", KoguroDomains[domainIndex], uid)
-                    Networking.Units["Update 10.5"].EquipSkill:FireServer(uid, "Primary", 3)
-                    Networking.Units["Update 10.5"].EquipSkill:FireServer(uid, "Secondary", 3)
-                    if GetWave() % 10 == 0 then
+                    
+                    -- Trash Gamer (สวมใส่สกิล ทำแค่ครั้งเดียวพอ)
+                    if not ProcessedUnits.EquipSkill[uid] then
+                        Networking.Units["Update 10.5"].EquipSkill:FireServer(uid, "Primary", 3)
+                        Networking.Units["Update 10.5"].EquipSkill:FireServer(uid, "Secondary", 3)
+                        ProcessedUnits.EquipSkill[uid] = true
+                    end
+                    
+                    -- Lich King (เปิด The Goal of All Life is Death ตอนเวฟบอส)
+                    local wave = GetWave()
+                    if wave > 0 and wave % 10 == 0 then
                         Networking.AbilityEvent:FireServer("Activate", uid, "The Goal of All Life is Death")
                     end
                 end)
@@ -182,8 +189,10 @@ task.spawn(function()
             task.wait(0.1)
         end
         
+        -- สลับโดเมน Koguro รอบถัดไป
         domainIndex = domainIndex >= 3 and 1 or domainIndex + 1
 
+        -- เซ็ตเวทมนตร์ให้ Lich King (รันครั้งเดียวพอ)
         if Config.AutoSkill and not Progress.LichSpellsConfirmed then
             pcall(function()
                 Networking.Units["Update 9.5"].ConfirmLichSpells:FireServer({{8, 13, 2, 17}})
@@ -193,6 +202,7 @@ task.spawn(function()
     end
 end)
 
+-- Barricade & Booster Monitor Loop
 task.spawn(function()
     while task.wait(3) do
         local wave = GetWave()
@@ -232,11 +242,17 @@ task.spawn(function()
         local currentWave = GetWave()
         local money = GetMoney()
 
+        -- [ เช็ค Standby รอรีเซ็ตเวฟ และรอให้หน้าจอ EndScreen ขึ้น ]
         if currentWave > 0 and currentWave < 10 and not Progress.FirstRabbitPlaced then
-            task.wait(10)
-            continue
+            local endScreen = LocalPlayer.PlayerGui:FindFirstChild("EndScreen")
+            -- ถ้า EndScreen ยังไม่โหลด หรือยังไม่ Enabled ให้วนลูปรอต่อไป
+            if not (endScreen and endScreen.Enabled) then
+                task.wait(0.2)
+                continue
+            end
         end
 
+        -- [ เวฟ 0 ]
         if currentWave == 0 and not Progress.FirstRabbitPlaced then
             TeleportTo(workspace.Map.Interactions.UnitShrine_RabbitHero["1"].Position); task.wait(1)
             Interact(workspace.Map.Interactions.UnitShrine_RabbitHero["1"].ProximityPrompt); task.wait(1)
@@ -245,8 +261,9 @@ task.spawn(function()
             Networking.SkipWaveEvent:FireServer("Skip"); task.wait(3)
         end
 
+        -- [ ต้นเกม: ตั้งบอร์ด (อัปเดตลอจิกใหม่จากคุณ) ]
         if currentWave >= 1 and currentWave < 20 then
-            if Progress.SprintwagonsPlaced < 3 then
+            if Progress.SprintwagonsPlaced < 3 and money >= 1000 then
                 TeleportTo(workspace.Map.Interactions.UnitShrine_Sprintwagon["1"].Position); task.wait(0.5)
                 Interact(workspace.Map.Interactions.UnitShrine_Sprintwagon["1"].ProximityPrompt); task.wait(1)
                 if money >= 550 then
@@ -254,16 +271,16 @@ task.spawn(function()
                     PlaceUnit("Sprintwagon", 1, SprintwagonCoords[index], UnitDatabase["Sprintwagon"])
                     Progress.SprintwagonsPlaced = index; task.wait(2)
                 end
-            elseif Progress.RabbitsPlaced < 3 then
+            elseif Progress.RabbitsPlaced < 3 and money >= 500 then
                 TeleportTo(workspace.Map.Interactions.UnitShrine_RabbitHero["1"].Position); task.wait(0.5)
                 Interact(workspace.Map.Interactions.UnitShrine_RabbitHero["1"].ProximityPrompt); task.wait(1)
-                if money >= 500 then
+                if money >= 1200 then
                     local index = Progress.RabbitsPlaced + 1
                     PlaceUnit("Rabbit Hero (Guts)", 1, RabbitCoords[index], UnitDatabase["Rabbit Hero (Guts)"])
                     Progress.RabbitsPlaced = index; task.wait(2)
                 end
             elseif not Progress.SprintwagonsMaxed then
-                if money > 5000 then Progress.SprintwagonsMaxed = true end
+                if money > 8000 then Progress.SprintwagonsMaxed = true end
             elseif Progress.TakarodaPlaced < 1 then
                 TeleportTo(workspace.Map.Interactions.UnitShrine_Takaroda["1"].Position); task.wait(0.5)
                 Interact(workspace.Map.Interactions.UnitShrine_Takaroda["1"].ProximityPrompt); task.wait(1)
@@ -272,6 +289,7 @@ task.spawn(function()
             end
         end
 
+        -- [ กลางเกม: ซื้อ Lane, บัพ, และสุ่มตู้ ]
         if currentWave >= 20 and currentWave < 149 then
             if not Progress.Lane2Bought and money >= 5000 then
                 TeleportTo(workspace.Map.Interactions.PurchaseLane2.Part.Position); task.wait(1)
@@ -312,6 +330,7 @@ task.spawn(function()
             end
         end
 
+        -- [ เวฟ 149 - 150 ]
         if currentWave == 149 and not Progress.LateGameDoorsBought then
             pcall(function()
                 TeleportTo(workspace.Map.Interactions.PurchaseLane4.Part.Position); task.wait(1); Interact(workspace.Map.Interactions.PurchaseLane4.Part.ProximityPrompt)
