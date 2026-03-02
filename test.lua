@@ -394,24 +394,33 @@ task.spawn(function()
         local money = GetMoney()
 
         local endScreen = LocalPlayer.PlayerGui:FindFirstChild("EndScreen")
+        local rewardsDisplay = LocalPlayer.PlayerGui:FindFirstChild("RewardsDisplay") -- [แก้บัค] ใช้ FindFirstChild เพื่อความปลอดภัย
 
-        if endScreen and endScreen.Enabled then
+        local isEndScreenOpen = endScreen and endScreen.Enabled
+        local isRewardsOpen = rewardsDisplay and rewardsDisplay.Enabled
+
+        -- [ อัปเดต ] ลอจิกรอจบเกมและกดข้าม Rewards
+        if isEndScreenOpen or isRewardsOpen then
             if currentWave < 150 then
                 SendWebhook("💀 ฐานแตกที่ Wave: " .. currentWave .. " กำลังเริ่มรอบใหม่...")
             end
             ResetData()
-            -- [ เพิ่มใหม่ ] จำลองการคลิกซ้ายกลางหน้าจอ 3 ครั้ง เพื่อกดยอมรับของรางวัล
-            pcall(function()
-                local cam = workspace.CurrentCamera
-                for i = 1, 4 do
-                    VirtualUser:CaptureController()
-                    -- สั่งคลิกซ้าย (ClickButton1) ไปที่พิกัดกึ่งกลางหน้าจอ
-                    VirtualUser:ClickButton1(Vector2.new(cam.ViewportSize.X / 2, cam.ViewportSize.Y / 2))
-                    task.wait(0.5) -- เว้นจังหวะการคลิก 0.5 วินาทีให้ดูเป็นธรรมชาติ
-                end
-            end)
+            
+            if isRewardsOpen then
+                pcall(function()
+                    local cam = workspace.CurrentCamera
+                    for i = 1, 4 do
+                        VirtualUser:CaptureController()
+                        VirtualUser:ClickButton1(Vector2.new(cam.ViewportSize.X / 2, cam.ViewportSize.Y / 2))
+                        task.wait(1)
+                    end
+                end)
+            end
+            
             task.wait(1)
-            ClickButton(LocalPlayer.PlayerGui.EndScreen.Holder.Buttons.Retry.Button)
+            if endScreen then
+                pcall(function() ClickButton(endScreen.Holder.Buttons.Retry.Button) end)
+            end
             task.wait(3)
             continue
         end
@@ -501,36 +510,40 @@ task.spawn(function()
                 end
             end
 
-            -- [ ลอจิกใหม่: บัพสลับสุ่มตู้ จนกว่าจะเต็ม 25 ตัว ]
+            -- [ ลอจิกที่จัดระเบียบใหม่: บัพสลับสุ่มตู้ ]
             if Config.AutoBuyModifiers and Progress.BoughtArmorBeGone then
                 local targetUid, targetName = nil, nil
                 
-                -- 1. ค้นหาตัวละครที่ยังไม่ได้บัพ Monarch
+                -- 1. ค้นหาเป้าหมาย (คัดตัวหาเงินทิ้ง)
                 for _, uid in pairs(GetAllMyUnitUIDs()) do
                     if not ProcessedUnits.PackATrait[uid] then
                         local unitFolder = workspace.Units:FindFirstChild(uid)
                         if unitFolder then
-                            local validTarget = false
+                            local isFarmUnit = false
+                            local detectedName = nil
+                            
                             for _, child in pairs(unitFolder:GetChildren()) do
                                 local name = child.Name
-                                -- ถ้าเจอตัวปั๊มเงิน แบล็กลิสต์ UID นี้ทิ้งไปเลย จะได้ไม่หลอนกลับมาบัพอีก
                                 if string.find(name, "Sprintwagon") or string.find(name, "Takaroda") then
-                                    ProcessedUnits.PackATrait[uid] = true
+                                    isFarmUnit = true
                                     break
-                                -- ถ้าเจอตัวดาเมจ ให้ล็อกเป้าหมายเตรียมบัพ
-                                elseif UnitDatabase[name] or string.find(name, "Warlord") or string.find(name, "Koguro") or string.find(name, "Trash Gamer") or string.find(name, "Ice Queen") or string.find(name, "Lich King") or string.find(name, "Rabbit Hero") then
-                                    targetUid = uid
-                                    targetName = name
-                                    validTarget = true
-                                    break
+                                elseif not string.find(name, "Hitbox") and not string.find(name, "Highlight") and name ~= "Stats" and not string.find(name, "Part") then
+                                    detectedName = name
                                 end
                             end
-                            if validTarget then break end -- ล็อกเป้าได้ 1 ตัวแล้วออกลูปเลย
+                            
+                            if isFarmUnit then
+                                ProcessedUnits.PackATrait[uid] = true
+                            elseif detectedName then
+                                targetUid = uid
+                                targetName = detectedName
+                                break 
+                            end
                         end
                     end
                 end
 
-                -- 2. ถ้าเจอตัวที่ยังไม่บัพ -> วิ่งไปกดตู้ Pack-A-Trait
+                -- 2. วิ่งไปซื้อบัพให้ตัวที่ยังไม่ได้รับ
                 if targetUid and money >= 50000 then
                     TweenTo(workspace.Map.Interactions.PackATrait1["Cube.005"].Position)
                     Interact(workspace.Map.Interactions.PackATrait1["Cube.005"].ProximityPrompt)
@@ -546,8 +559,15 @@ task.spawn(function()
                             if unitListItem and unitListItem:FindFirstChild("Unit") then
                                 for _, child in pairs(unitListItem.Unit:GetChildren()) do
                                     if child:FindFirstChild("Container") and child.Container:FindFirstChild("Button") then
+                                        
+                                        -- [ ใช้ความรู้ของคุณ ] ดึงชื่อจากโครงสร้าง UI ที่คุณแกะมา
+                                        local uiUnitName = targetName
+                                        if child.Container:FindFirstChild("Holder") and child.Container.Holder:FindFirstChild("Main") and child.Container.Holder.Main:FindFirstChild("UnitName") then
+                                            uiUnitName = child.Container.Holder.Main.UnitName.Text
+                                        end
+
                                         ClickButton(child.Container.Button)
-                                        SendWebhook("ใส่บัพให้:" .. targetName)
+                                        SendWebhook("⭐ ใส่บัพให้: " .. uiUnitName)
                                         task.wait(1)
                                         break
                                     end
@@ -560,41 +580,43 @@ task.spawn(function()
                     ProcessedUnits.PackATrait[targetUid] = true
                     task.wait(2)
 
-                -- 3. ถ้าบัพครบทุกตัวแล้ว (ไม่มี targetUid) และตัวละครบนบอร์ดยังไม่ถึง 25 ตัว -> วิ่งไปสุ่ม Mystery Box
+                -- 3. ถ้าทุกคนได้บัพแล้ว ค่อยมาสุ่มตู้ (เฉพาะช่วงเวฟ 90-105)
                 elseif not targetUid and #workspace.Units:GetChildren() < 25 and Config.MysteryBoxSpam and money >= 10000 then
-                    TweenTo(workspace.Map.Interactions.MysteryBox1.CrateBottom.default.Position)
+                    local isSpamWave = (currentWave >= 90 and currentWave <= 105)
                     
-                    -- จัดไป! สุ่มรัว 10 ครั้งต่อรอบถ้างบถึงแสน
-                    local timesToSpam = (money >= 100000) and 10 or 1
-                    for _ = 1, timesToSpam do
-                        Interact(workspace.Map.Interactions.MysteryBox1.CrateBottom.default.ProximityPrompt)
-                        task.wait(0.2)
-                    end
-                    task.wait(2) -- รอให้แอนิเมชันของเข้ากระเป๋าให้เสร็จ
+                    if isSpamWave then
+                        TweenTo(workspace.Map.Interactions.MysteryBox1.CrateBottom.default.Position)
+                        
+                        local timesToSpam = (money >= 50000) and 10 or 1
+                        for _ = 1, timesToSpam do
+                            Interact(workspace.Map.Interactions.MysteryBox1.CrateBottom.default.ProximityPrompt)
+                            task.wait(0.2)
+                        end
+                        task.wait(2)
 
-                    pcall(function()
-                        for i = 1, 6 do
-                            if #workspace.Units:GetChildren() >= 25 then break end -- ถ้าครบ 25 แล้วให้เบรกการวางทันที
-                            
-                            local slot = LocalPlayer.PlayerGui.Hotbar.Main.Units[tostring(i)]
-                            if slot and slot.UnitTemplate.Container.Holder.Main:FindFirstChild("UnitName") then
-                                local unitName = slot.UnitTemplate.Container.Holder.Main.UnitName.Text
+                        pcall(function()
+                            for i = 1, 6 do
+                                if #workspace.Units:GetChildren() >= 25 then break end 
+                                
+                                local slot = LocalPlayer.PlayerGui.Hotbar.Main.Units[tostring(i)]
+                                if slot and slot.UnitTemplate.Container.Holder.Main:FindFirstChild("UnitName") then
+                                    local unitName = slot.UnitTemplate.Container.Holder.Main.UnitName.Text
 
-                                if UnitDatabase[unitName] and unitName ~= "Sprintwagon" and unitName ~= "Takaroda" and unitName ~= "Rabbit Hero (Guts)" then
-                                    local randomPos = Vector3.new(8.12 + (math.random(-150, 150) / 10), 255.58, 97.70 + (math.random(-150, 150) / 10))
-                                    
-                                    local unitsBefore = #workspace.Units:GetChildren()
-                                    PlaceUnit(unitName, i, randomPos, UnitDatabase[unitName])
-                                    task.wait(1.5)
-                                    
-                                    -- เช็คว่าวางลงบอร์ดจริงๆ ใช่ไหม
-                                    if #workspace.Units:GetChildren() > unitsBefore then
-                                        SendWebhook("วางตัวละครใหม่สำเร็จ เตรียมใส่บัพในลูปถัดไป: " .. unitName)
+                                    if UnitDatabase[unitName] and unitName ~= "Sprintwagon" and unitName ~= "Takaroda" and unitName ~= "Rabbit Hero (Guts)" then
+                                        local randomPos = Vector3.new(8.12 + (math.random(-150, 150) / 10), 255.58, 97.70 + (math.random(-150, 150) / 10))
+                                        
+                                        local unitsBefore = #workspace.Units:GetChildren()
+                                        PlaceUnit(unitName, i, randomPos, UnitDatabase[unitName])
+                                        task.wait(1.5)
+                                        
+                                        if #workspace.Units:GetChildren() > unitsBefore then
+                                            SendWebhook("📦 วางตัวละครใหม่สำเร็จ เตรียมใส่บัพในลูปถัดไป: " .. unitName)
+                                        end
                                     end
                                 end
                             end
-                        end
-                    end)
+                        end)
+                    end
                 end
             end
         end
