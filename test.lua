@@ -400,6 +400,17 @@ task.spawn(function()
                 SendWebhook("💀 ฐานแตกที่ Wave: " .. currentWave .. " กำลังเริ่มรอบใหม่...")
             end
             ResetData()
+            -- [ เพิ่มใหม่ ] จำลองการคลิกซ้ายกลางหน้าจอ 3 ครั้ง เพื่อกดยอมรับของรางวัล
+            pcall(function()
+                local cam = workspace.CurrentCamera
+                for i = 1, 4 do
+                    VirtualUser:CaptureController()
+                    -- สั่งคลิกซ้าย (ClickButton1) ไปที่พิกัดกึ่งกลางหน้าจอ
+                    VirtualUser:ClickButton1(Vector2.new(cam.ViewportSize.X / 2, cam.ViewportSize.Y / 2))
+                    task.wait(0.5) -- เว้นจังหวะการคลิก 0.5 วินาทีให้ดูเป็นธรรมชาติ
+                end
+            end)
+            task.wait(1)
             ClickButton(LocalPlayer.PlayerGui.EndScreen.Holder.Buttons.Retry.Button)
             task.wait(3)
             continue
