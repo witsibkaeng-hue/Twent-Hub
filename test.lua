@@ -269,6 +269,8 @@ local function ClickButton(btn)
         if getconnections then
             for _, connection in pairs(getconnections(btn.MouseButton1Click)) do connection:Fire() end
             for _, connection in pairs(getconnections(btn.Activated)) do connection:Fire() end
+            for _, connection in pairs(getconnections(btn.MouseButton1Down)) do connection:Fire() end
+            for _, connection in pairs(getconnections(btn.MouseButton1Up)) do connection:Fire() end
         end
     end)
 end
@@ -508,7 +510,7 @@ task.spawn(function()
                 end
 
                 if targetUid and money >= 50000 then
-                    TweenTo(workspace.Map.Interactions.PackATrait1["Cube.005"].Position)
+                    WalkTo(workspace.Map.Interactions.PackATrait1["Cube.005"].Position)
                     Interact(workspace.Map.Interactions.PackATrait1["Cube.005"].ProximityPrompt)
                     task.wait(2)
 
@@ -516,14 +518,24 @@ task.spawn(function()
                         ClickButton(LocalPlayer.PlayerGui.Guides.List.StageInfo.Buttons.UnitManager.Button)
                         task.wait(2)
 
-                        local unitListItem = LocalPlayer.PlayerGui.UnitManager.Holder.List:FindFirstChild(targetUid)
-                        if unitListItem and unitListItem:FindFirstChild("Unit") then
-                            local unitFrame = unitListItem.Unit:FindFirstChild(targetName)
-                            if unitFrame and unitFrame:FindFirstChild("Container") then
-                                ClickButton(unitFrame.Container:FindFirstChild("Button"))
-                                task.wait(1)
-                                ClickButton(LocalPlayer.PlayerGui.UnitManager.Holder.Back.Button)
+                        local unitManager = LocalPlayer.PlayerGui:FindFirstChild("UnitManager")
+                        if unitManager then
+                            local unitListItem = unitManager.Holder.List:FindFirstChild(targetUid)
+                            if unitListItem and unitListItem:FindFirstChild("Unit") then
+                                
+                                -- [ แก้บัค ] วนลูปหาปุ่มโดยไม่สนชื่อตัวละคร เพื่อแก้ปัญหาชื่อใน UI ไม่ตรงกับโมเดล
+                                for _, child in pairs(unitListItem.Unit:GetChildren()) do
+                                    if child:FindFirstChild("Container") and child.Container:FindFirstChild("Button") then
+                                        ClickButton(child.Container.Button)
+                                        print("Successfully clicked Pack-A-Trait for:", targetName)
+                                        task.wait(1)
+                                        break
+                                    end
+                                end
+                                
                             end
+                            -- กดปุ่มปิดหน้าจอ
+                            ClickButton(unitManager.Holder.Back.Button)
                         end
                     end)
 
@@ -531,7 +543,6 @@ task.spawn(function()
                     task.wait(2)
                 end
             end
-
             -- [ อัปเดต ] Spam Mystery Box: จำกัดให้สุ่มเฉพาะตอนเลทเกมช่วงเวฟ 90 ถึง 105 เท่านั้น
             local isSpamWave = (currentWave >= 90 and currentWave <= 105)
 
