@@ -490,25 +490,36 @@ task.spawn(function()
                 end
             end
 
-            -- Auto Pack-A-Trait (ทำต่อให้ดองเงินอยู่)
-            if Config.AutoBuyModifiers and Progress.BoughtArmorBeGone and money >= 50000 then
+            -- [ ลอจิกใหม่: บัพสลับสุ่มตู้ จนกว่าจะเต็ม 25 ตัว ]
+            if Config.AutoBuyModifiers and Progress.BoughtArmorBeGone then
                 local targetUid, targetName = nil, nil
+                
+                -- 1. ค้นหาตัวละครที่ยังไม่ได้บัพ Monarch
                 for _, uid in pairs(GetAllMyUnitUIDs()) do
                     if not ProcessedUnits.PackATrait[uid] then
                         local unitFolder = workspace.Units:FindFirstChild(uid)
                         if unitFolder then
+                            local validTarget = false
                             for _, child in pairs(unitFolder:GetChildren()) do
-                                if not string.find(child.Name, "Sprintwagon") and not string.find(child.Name, "Takaroda") then
+                                local name = child.Name
+                                -- ถ้าเจอตัวปั๊มเงิน แบล็กลิสต์ UID นี้ทิ้งไปเลย จะได้ไม่หลอนกลับมาบัพอีก
+                                if string.find(name, "Sprintwagon") or string.find(name, "Takaroda") then
+                                    ProcessedUnits.PackATrait[uid] = true
+                                    break
+                                -- ถ้าเจอตัวดาเมจ ให้ล็อกเป้าหมายเตรียมบัพ
+                                elseif UnitDatabase[name] or string.find(name, "Warlord") or string.find(name, "Koguro") or string.find(name, "Trash Gamer") or string.find(name, "Ice Queen") or string.find(name, "Lich King") or string.find(name, "Rabbit Hero") then
                                     targetUid = uid
-                                    targetName = child.Name
+                                    targetName = name
+                                    validTarget = true
                                     break
                                 end
                             end
+                            if validTarget then break end -- ล็อกเป้าได้ 1 ตัวแล้วออกลูปเลย
                         end
                     end
-                    if targetUid then break end
                 end
 
+                -- 2. ถ้าเจอตัวที่ยังไม่บัพ -> วิ่งไปกดตู้ Pack-A-Trait
                 if targetUid and money >= 50000 then
                     TweenTo(workspace.Map.Interactions.PackATrait1["Cube.005"].Position)
                     Interact(workspace.Map.Interactions.PackATrait1["Cube.005"].ProximityPrompt)
@@ -522,55 +533,58 @@ task.spawn(function()
                         if unitManager then
                             local unitListItem = unitManager.Holder.List:FindFirstChild(targetUid)
                             if unitListItem and unitListItem:FindFirstChild("Unit") then
-                                
-                                -- [ แก้บัค ] วนลูปหาปุ่มโดยไม่สนชื่อตัวละคร เพื่อแก้ปัญหาชื่อใน UI ไม่ตรงกับโมเดล
                                 for _, child in pairs(unitListItem.Unit:GetChildren()) do
                                     if child:FindFirstChild("Container") and child.Container:FindFirstChild("Button") then
                                         ClickButton(child.Container.Button)
-                                        print("Successfully clicked Pack-A-Trait for:", targetName)
+                                        print("ใส่บัพให้:", targetName)
                                         task.wait(1)
                                         break
                                     end
                                 end
-                                
                             end
-                            -- กดปุ่มปิดหน้าจอ
                             ClickButton(unitManager.Holder.Back.Button)
                         end
                     end)
 
                     ProcessedUnits.PackATrait[targetUid] = true
                     task.wait(2)
-                end
-            end
-            -- [ อัปเดต ] Spam Mystery Box: จำกัดให้สุ่มเฉพาะตอนเลทเกมช่วงเวฟ 90 ถึง 105 เท่านั้น
-            local isSpamWave = (currentWave >= 90 and currentWave <= 105)
 
-            if Config.MysteryBoxSpam and Progress.Lane3Bought and (not Config.AutoBuyModifiers or Progress.BoughtArmorBeGone) and money >= 10000 and isSpamWave then
-                TweenTo(workspace.Map.Interactions.MysteryBox1.CrateBottom.default.Position)
+                -- 3. ถ้าบัพครบทุกตัวแล้ว (ไม่มี targetUid) และตัวละครบนบอร์ดยังไม่ถึง 25 ตัว -> วิ่งไปสุ่ม Mystery Box
+                elseif not targetUid and #workspace.Units:GetChildren() < 25 and Config.MysteryBoxSpam and money >= 10000 then
+                    TweenTo(workspace.Map.Interactions.MysteryBox1.CrateBottom.default.Position)
+                    
+                    -- จัดไป! สุ่มรัว 10 ครั้งต่อรอบถ้างบถึงแสน
+                    local timesToSpam = (money >= 100000) and 10 or 1
+                    for _ = 1, timesToSpam do
+                        Interact(workspace.Map.Interactions.MysteryBox1.CrateBottom.default.ProximityPrompt)
+                        task.wait(0.2)
+                    end
+                    task.wait(2) -- รอให้แอนิเมชันของเข้ากระเป๋าให้เสร็จ
 
-                local timesToSpam = (money >= 100000) and 10 or 1
-                for _ = 1, timesToSpam do
-                    Interact(workspace.Map.Interactions.MysteryBox1.CrateBottom.default.ProximityPrompt)
-                    task.wait(0.2)
-                end
-                task.wait(2)
+                    pcall(function()
+                        for i = 1, 6 do
+                            if #workspace.Units:GetChildren() >= 25 then break end -- ถ้าครบ 25 แล้วให้เบรกการวางทันที
+                            
+                            local slot = LocalPlayer.PlayerGui.Hotbar.Main.Units[tostring(i)]
+                            if slot and slot.UnitTemplate.Container.Holder.Main:FindFirstChild("UnitName") then
+                                local unitName = slot.UnitTemplate.Container.Holder.Main.UnitName.Text
 
-                pcall(function()
-                    for i = 1, 6 do
-                        local slot = LocalPlayer.PlayerGui.Hotbar.Main.Units[tostring(i)]
-                        if slot and slot.UnitTemplate.Container.Holder.Main:FindFirstChild("UnitName") then
-                            local unitName = slot.UnitTemplate.Container.Holder.Main.UnitName.Text
-
-                            if UnitDatabase[unitName] and unitName ~= "Sprintwagon" and unitName ~= "Takaroda" and unitName ~= "Rabbit Hero (Guts)" then
-                                -- สุ่มพิกัดกระจายตัว
-                                local randomPos = Vector3.new(8.12 + (math.random(-150, 150) / 10), 255.58, 97.70 + (math.random(-150, 150) / 10))
-                                PlaceUnit(unitName, i, randomPos, UnitDatabase[unitName])
-                                task.wait(1.5)
+                                if UnitDatabase[unitName] and unitName ~= "Sprintwagon" and unitName ~= "Takaroda" and unitName ~= "Rabbit Hero (Guts)" then
+                                    local randomPos = Vector3.new(8.12 + (math.random(-150, 150) / 10), 255.58, 97.70 + (math.random(-150, 150) / 10))
+                                    
+                                    local unitsBefore = #workspace.Units:GetChildren()
+                                    PlaceUnit(unitName, i, randomPos, UnitDatabase[unitName])
+                                    task.wait(1.5)
+                                    
+                                    -- เช็คว่าวางลงบอร์ดจริงๆ ใช่ไหม
+                                    if #workspace.Units:GetChildren() > unitsBefore then
+                                        SendWebhook("วางตัวละครใหม่สำเร็จ เตรียมใส่บัพในลูปถัดไป: " .. unitName)
+                                    end
+                                end
                             end
                         end
-                    end
-                end)
+                    end)
+                end
             end
         end
 
