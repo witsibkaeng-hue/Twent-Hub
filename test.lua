@@ -406,14 +406,24 @@ task.spawn(function()
             end
             ResetData()
             
-            if isRewardsOpen then
+           if isRewardsOpen then
                 pcall(function()
+                    local vim = game:GetService("VirtualInputManager")
                     local cam = workspace.CurrentCamera
-                    for i = 1, 4 do
-                        VirtualUser:CaptureController()
-                        VirtualUser:ClickButton1(Vector2.new(cam.ViewportSize.X / 2, cam.ViewportSize.Y / 2))
-                        task.wait(1)
+                    local x = cam.ViewportSize.X / 2
+                    local y = cam.ViewportSize.Y / 2
+                    
+                    local timeout = 0
+                    -- [ อัปเดต ] วนลูปคลิกไปเรื่อยๆ ตราบใดที่หน้าจอยังเปิดอยู่ (และไม่เกิน 10 วินาที)
+                    while rewardsDisplay and rewardsDisplay.Enabled and timeout < 20 do
+                        vim:SendMouseButtonEvent(x, y, 0, true, game, 1)
+                        task.wait(0.1)
+                        vim:SendMouseButtonEvent(x, y, 0, false, game, 1)
+                        task.wait(0.4) -- คลิก 1 ครั้งใช้เวลาประมาณ 0.5 วินาที
+                        
+                        timeout = timeout + 1 -- นับรอบไปเรื่อยๆ (20 รอบ = 10 วินาที)
                     end
+                    print("ปิดหน้าต่าง Rewards สำเร็จ หรือหมดเวลา Timeout!")
                 end)
             end
             
@@ -510,36 +520,15 @@ task.spawn(function()
                 end
             end
 
-            -- [ ลอจิกที่จัดระเบียบใหม่: บัพสลับสุ่มตู้ ]
+            -- [ ลอจิกใหม่: บัพเหมาเข่งทุกตัวบนบอร์ด (เพราะเรารวย!) ]
             if Config.AutoBuyModifiers and Progress.BoughtArmorBeGone then
-                local targetUid, targetName = nil, nil
+                local targetUid = nil
                 
-                -- 1. ค้นหาเป้าหมาย (คัดตัวหาเงินทิ้ง)
+                -- 1. ค้นหา UID ที่ยังไม่ได้บัพ (กวาดเรียบทุกตัว ไม่สนชื่อ!)
                 for _, uid in pairs(GetAllMyUnitUIDs()) do
                     if not ProcessedUnits.PackATrait[uid] then
-                        local unitFolder = workspace.Units:FindFirstChild(uid)
-                        if unitFolder then
-                            local isFarmUnit = false
-                            local detectedName = nil
-                            
-                            for _, child in pairs(unitFolder:GetChildren()) do
-                                local name = child.Name
-                                if string.find(name, "Sprintwagon") or string.find(name, "Takaroda") then
-                                    isFarmUnit = true
-                                    break
-                                elseif not string.find(name, "Hitbox") and not string.find(name, "Highlight") and name ~= "Stats" and not string.find(name, "Part") then
-                                    detectedName = name
-                                end
-                            end
-                            
-                            if isFarmUnit then
-                                ProcessedUnits.PackATrait[uid] = true
-                            elseif detectedName then
-                                targetUid = uid
-                                targetName = detectedName
-                                break 
-                            end
-                        end
+                        targetUid = uid
+                        break -- เจอตัวยังไม่บัพปุ๊บ ล็อกเป้าทันที
                     end
                 end
 
@@ -560,8 +549,8 @@ task.spawn(function()
                                 for _, child in pairs(unitListItem.Unit:GetChildren()) do
                                     if child:FindFirstChild("Container") and child.Container:FindFirstChild("Button") then
                                         
-                                        -- [ ใช้ความรู้ของคุณ ] ดึงชื่อจากโครงสร้าง UI ที่คุณแกะมา
-                                        local uiUnitName = targetName
+                                        -- ดึงชื่อมาแสดงโชว์ใน Webhook
+                                        local uiUnitName = "Unknown Unit"
                                         if child.Container:FindFirstChild("Holder") and child.Container.Holder:FindFirstChild("Main") and child.Container.Holder.Main:FindFirstChild("UnitName") then
                                             uiUnitName = child.Container.Holder.Main.UnitName.Text
                                         end
@@ -580,7 +569,7 @@ task.spawn(function()
                     ProcessedUnits.PackATrait[targetUid] = true
                     task.wait(2)
 
-                -- 3. ถ้าทุกคนได้บัพแล้ว ค่อยมาสุ่มตู้ (เฉพาะช่วงเวฟ 90-105)
+                -- 3. ถ้าทุกคนได้บัพครบหมดแล้ว ค่อยมาสุ่มตู้ (เฉพาะช่วงเวฟ 90-105)
                 elseif not targetUid and #workspace.Units:GetChildren() < 25 and Config.MysteryBoxSpam and money >= 10000 then
                     local isSpamWave = (currentWave >= 90 and currentWave <= 105)
                     
