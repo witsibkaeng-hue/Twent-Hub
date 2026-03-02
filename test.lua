@@ -547,7 +547,7 @@ task.spawn(function()
                                 for _, child in pairs(unitListItem.Unit:GetChildren()) do
                                     if child:FindFirstChild("Container") and child.Container:FindFirstChild("Button") then
                                         ClickButton(child.Container.Button)
-                                        print("ใส่บัพให้:", targetName)
+                                        SendWebhook("ใส่บัพให้:" .. targetName)
                                         task.wait(1)
                                         break
                                     end
