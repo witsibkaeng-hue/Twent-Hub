@@ -362,7 +362,7 @@ task.spawn(function()
                     if string.find(prompt.ObjectText, "0/5") then
                         TweenTo(workspace.Map.Interactions["Barricade"..i].default.Position)
                         Interact(prompt)
-                        task.wait(1) 
+                        task.wait(2) 
                     end
                 end
             end)
