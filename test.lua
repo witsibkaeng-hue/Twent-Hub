@@ -362,7 +362,7 @@ task.spawn(function()
                     if string.find(prompt.ObjectText, "0/5") then
                         TweenTo(workspace.Map.Interactions["Barricade"..i].default.Position)
                         Interact(prompt)
-                        task.wait(1) 
+                        task.wait(1)
                     end
                 end
             end)
@@ -587,27 +587,47 @@ task.spawn(function()
                     task.wait(2)
 
                     pcall(function()
-                        for i = 1, 6 do
-                            if #workspace.Units:GetChildren() >= 25 then break end
-                            
-                            local slot = LocalPlayer.PlayerGui.Hotbar.Main.Units[tostring(i)]
-                            if slot and slot.UnitTemplate.Container.Holder.Main:FindFirstChild("UnitName") then
-                                local unitName = slot.UnitTemplate.Container.Holder.Main.UnitName.Text
+                            for i = 1, 6 do
+                                if #workspace.Units:GetChildren() >= 25 then break end
+                                
+                                local slot = LocalPlayer.PlayerGui.Hotbar.Main.Units[tostring(i)]
+                                
+                                -- เช็คให้ชัวร์ว่าช่องนี้มีตัวละครอยู่จริงๆ (ไม่พังถ้าช่องว่าง)
+                                if slot and slot:FindFirstChild("UnitTemplate") and slot.UnitTemplate:FindFirstChild("Container") then
+                                    local mainHolder = slot.UnitTemplate.Container.Holder:FindFirstChild("Main")
+                                    if mainHolder and mainHolder:FindFirstChild("UnitName") then
+                                        local unitName = mainHolder.UnitName.Text
 
-                                if UnitDatabase[unitName] and unitName ~= "Sprintwagon" and unitName ~= "Takaroda" and unitName ~= "Rabbit Hero (Guts)" then
-                                    local randomPos = Vector3.new(8.12 + (math.random(-150, 150) / 10), 255.58, 97.70 + (math.random(-150, 150) / 10))
-                                    
-                                    local unitsBefore = #workspace.Units:GetChildren()
-                                    PlaceUnit(unitName, i, randomPos, UnitDatabase[unitName])
-                                    task.wait(1.5)
-                                    
-                                    if #workspace.Units:GetChildren() > unitsBefore then
-                                        SendWebhook("📦 วางตัวละครใหม่สำเร็จ เตรียมใส่บัพในลูปถัดไป: " .. unitName)
+                                        if UnitDatabase[unitName] and unitName ~= "Sprintwagon" and unitName ~= "Takaroda" and unitName ~= "Rabbit Hero (Guts)" then
+                                            
+                                            -- [ อัปเดต ] ระบบ Retry ลองวางซ้ำสูงสุด 3 รอบ
+                                            local retryCount = 0
+                                            local placedSuccessfully = false
+
+                                            while retryCount < 5 and not placedSuccessfully do
+                                                -- สุ่มพิกัดใหม่ "ทุกครั้ง" ที่ลองวางเผื่อจุดเดิมมันบัค
+                                                local randomPos = Vector3.new(8.12 + (math.random(-150, 150) / 10), 255.58, 97.70 + (math.random(-150, 150) / 10))
+                                                local unitsBefore = #workspace.Units:GetChildren()
+                                                
+                                                PlaceUnit(unitName, i, randomPos, UnitDatabase[unitName])
+                                                task.wait(1.5)
+                                                
+                                                -- ถ้าจำนวนตัวละครบนบอร์ดเพิ่มขึ้น = วางสำเร็จ!
+                                                if #workspace.Units:GetChildren() > unitsBefore then
+                                                    placedSuccessfully = true
+                                                    SendWebhook("📦 วางตัวละครใหม่สำเร็จ เตรียมใส่บัพในลูปถัดไป: " .. unitName)
+                                                else
+                                                    -- ถ่ายังวางไม่ลง ให้บวกเลขแล้วลองวนลูปวางใหม่
+                                                    retryCount = retryCount + 1
+                                                    print("วาง " .. unitName .. " ไม่ติด! สุ่มจุดวางใหม่ รอบที่ " .. retryCount)
+                                                end
+                                            end
+                                            
+                                        end
                                     end
                                 end
                             end
-                        end
-                    end)
+                        end)
                 end
             end
         end
