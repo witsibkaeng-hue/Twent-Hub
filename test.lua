@@ -510,7 +510,7 @@ task.spawn(function()
                 end
 
                 if targetUid and money >= 50000 then
-                    WalkTo(workspace.Map.Interactions.PackATrait1["Cube.005"].Position)
+                    TweenTo(workspace.Map.Interactions.PackATrait1["Cube.005"].Position)
                     Interact(workspace.Map.Interactions.PackATrait1["Cube.005"].ProximityPrompt)
                     task.wait(2)
 
