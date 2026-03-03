@@ -221,7 +221,7 @@ Tabs.Webhook:AddInput("WebURL", {
 })
 
 Fluent:Notify({ Title = "REAPER-X V22", Content = "ระบบพร้อมทำงาน (ปลอดภัยขั้นสุด)!", Duration = 5 })
-task.wait(5)
+
 ---------------------------------------------------------------------------
 -- [3] Helper Functions
 ---------------------------------------------------------------------------
@@ -419,7 +419,9 @@ task.spawn(function()
 
         -- [ อัปเดต ] ลอจิกรอจบเกมและกดข้าม Rewards
         if isEndScreenOpen or isRewardsOpen then
-            
+            if currentWave < 150 then
+                SendWebhook("💀 ฐานแตกที่ Wave: " .. currentWave .. " กำลังเริ่มรอบใหม่...")
+            end
             ResetData()
             
            if isRewardsOpen then
@@ -434,26 +436,14 @@ task.spawn(function()
                         vim:SendMouseButtonEvent(x, y, 0, true, game, 1)
                         task.wait(0.1)
                         vim:SendMouseButtonEvent(x, y, 0, false, game, 1)
-                        task.wait(0.4)
-                        timeout = timeout + 1
+                        task.wait(0.4) 
+                        timeout = timeout + 1 
                     end
                 end)
             end
             
             task.wait(1)
             if endScreen then
-                if currentWave < 150 then
-                    local clrwave = LocalPlayer.PlayerGui.EndScreen.Holder.Main.StageStatistics.WavesCompleted.Amount
-                    local clrmoney = LocalPlayer.PlayerGui.EndScreen.Holder.Main.StageStatistics.MoneyEarned.Amount
-                    local myFields = {
-                { ["name"] = "👨‍🚀 Player", ["value"] = LocalPlayer.Name, ["inline"] = true },
-                { ["name"] = "🌊 Cleared Wave", ["value"] = tostring(clrwave), ["inline"] = true },
-                { ["name"] = "💰 Money", ["value"] = tostring(clrmoney), ["inline"] = false }
-            }
-            
-            -- สั่งยิง Webhook (ใช้สีเขียว 65280)
-            SendWebhook("👑 MATCH FINISHED!", "บอททำงานเสร็จสิ้น กำลังเริ่มใหม่", 15548997, myFields)
-            end
                 pcall(function() ClickButton(endScreen.Holder.Buttons.Retry.Button) end)
             end
             task.wait(3)
@@ -477,7 +467,7 @@ task.spawn(function()
             if #workspace.Units:GetChildren() > unitsBefore then
                 Progress.FirstRabbitPlaced = true
                 Networking.SkipWaveEvent:FireServer("Skip"); task.wait(3)
-                SendWebhook("🚀 เริ่มฟาร์มรอบใหม่แล้ว!",15548997)
+                SendWebhook("🚀 เริ่มฟาร์มรอบใหม่แล้ว!")
             end
         end
 
@@ -544,7 +534,7 @@ task.spawn(function()
                     Progress.BoughtArmorBeGone = true; task.wait(1)
                 end
             end
-    
+
             -- [ ลอจิกใหม่: บัพเหมาเข่งทุกตัวบนบอร์ด (เพราะเรารวย!) ]
             if Config.AutoBuyModifiers and Progress.BoughtArmorBeGone then
                 local targetUid = nil
@@ -631,7 +621,7 @@ task.spawn(function()
                                                 local unitsBefore = #workspace.Units:GetChildren()
                                                 
                                                 PlaceUnit(unitName, i, randomPos, UnitDatabase[unitName])
-                                                task.wait(1)
+                                                task.wait(1.5)
                                                 
                                                 -- ถ้าจำนวนตัวละครบนบอร์ดเพิ่มขึ้น = วางสำเร็จ!
                                                 if #workspace.Units:GetChildren() > unitsBefore then
