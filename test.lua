@@ -73,14 +73,32 @@ local function SaveConfig()
 end
 LoadConfig()
 
--- ฟังก์ชันส่งข้อความเข้า Discord Webhook
-local function SendWebhook(message)
+-- ฟังก์ชันส่งข้อความเข้า Discord Webhook แบบ Embed สุดเท่
+local function SendWebhook(title, description, color, fields)
     if Config.WebhookURL and Config.WebhookURL ~= "" then
         pcall(function()
-            local data = {
-                ["content"] = message,
-                ["username"] = "REAPER-X BOT"
+            -- กำหนดสีเริ่มต้น (ถ้าไม่ใส่มาให้ใช้สีฟ้า)
+            local embedColor = color or 3447003 
+
+            local embedData = {
+                ["title"] = title or "REAPER-X UPDATE",
+                ["description"] = description or "",
+                ["color"] = embedColor,
+                ["footer"] = { ["text"] = "REAPER-X | V22.0 OMNI-AUTOMATA" },
+                ["timestamp"] = DateTime.now():ToIsoDate()
             }
+
+            -- ถ้ามีข้อมูลแบบแยกเป็นบรรทัด (Fields) ให้ใส่เพิ่มเข้าไป
+            if fields and type(fields) == "table" then
+                embedData["fields"] = fields
+            end
+
+            local data = {
+                ["username"] = "REAPER-X BOT",
+                ["avatar_url"] = "https://i.imgur.com/your_bot_image.png", -- เปลี่ยนลิงก์รูปโปรไฟล์บอทได้
+                ["embeds"] = { embedData }
+            }
+
             local headers = { ["content-type"] = "application/json" }
             local requestFunc = http_request or request or HttpPost
             if requestFunc then
@@ -639,7 +657,16 @@ task.spawn(function()
         end
 
         if currentWave >= 150 then
-            SendWebhook("👑 ชนะเวฟ 150 สำเร็จ! รับเหรียญจุกๆ แล้วกำลังกลับไป Lobby...")
+            -- เตรียมข้อมูลลงตารางให้สวยงาม
+            local myFields = {
+                { ["name"] = "👨‍🚀 Player", ["value"] = LocalPlayer.Name, ["inline"] = true },
+                { ["name"] = "🌊 Cleared Wave", ["value"] = tostring(currentWave), ["inline"] = true },
+                { ["name"] = "💰 Final Money", ["value"] = tostring(GetMoney()), ["inline"] = false }
+            }
+            
+            -- สั่งยิง Webhook (ใช้สีเขียว 65280)
+            SendWebhook("👑 MATCH FINISHED!", "บอททำงานเสร็จสิ้น กำลังกลับ Lobby...", 65280, myFields)
+            
             task.wait(3)
             Networking.TeleportEvent:FireServer("Lobby")
             task.wait(10)
