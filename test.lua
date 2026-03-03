@@ -95,7 +95,7 @@ local function SendWebhook(title, description, color, fields)
 
             local data = {
                 ["username"] = "REAPER-X BOT",
-                ["avatar_url"] = "https://i.imgur.com/your_bot_image.png", -- เปลี่ยนลิงก์รูปโปรไฟล์บอทได้
+                ["avatar_url"] = "https://cdn.rafled.com/anime-icons/images/jQuSzIWU7vq4BHJL2Cs4pilRVMrHKZa3.jpg", -- เปลี่ยนลิงก์รูปโปรไฟล์บอทได้
                 ["embeds"] = { embedData }
             }
 
