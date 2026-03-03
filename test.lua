@@ -452,8 +452,7 @@ task.spawn(function()
             }
             
             -- สั่งยิง Webhook (ใช้สีเขียว 65280)
-            SendWebhook("👑 MATCH FINISHED!", "บอททำงานเสร็จสิ้น กำลังกลับ Lobby...", 65280, myFields)
-                SendWebhook("💀 ฐานแตกที่ Wave: " .. currentWave .. " กำลังเริ่มรอบใหม่...")
+            SendWebhook("👑 MATCH FINISHED!", "บอททำงานเสร็จสิ้น กำลังเริ่มใหม่", 15548997, myFields)
             end
                 pcall(function() ClickButton(endScreen.Holder.Buttons.Retry.Button) end)
             end
