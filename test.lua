@@ -444,7 +444,7 @@ task.spawn(function()
             
             task.wait(1)
             if endScreen then
-                pcall(function() ClickButton(endScreen.Holder.Buttons.Retry.Button) end)
+                -- pcall(function() ClickButton(endScreen.Holder.Buttons.Retry.Button) end)
             end
             task.wait(3)
             continue
