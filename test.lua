@@ -604,7 +604,7 @@ task.spawn(function()
                                             local retryCount = 0
                                             local placedSuccessfully = false
 
-                                            while retryCount < 5 and not placedSuccessfully do
+                                            while retryCount < 15 and not placedSuccessfully do
                                                 -- สุ่มพิกัดใหม่ "ทุกครั้ง" ที่ลองวางเผื่อจุดเดิมมันบัค
                                                 local randomPos = Vector3.new(8.12 + (math.random(-150, 150) / 10), 255.58, 97.70 + (math.random(-150, 150) / 10))
                                                 local unitsBefore = #workspace.Units:GetChildren()
