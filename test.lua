@@ -539,7 +539,6 @@ task.spawn(function()
                         -- [แก้ปัญหา 1] ดับเบิลเช็คยอดเงิน ก่อนตัดสินใจกด UI
                         local currentMoney = GetMoney()
                         if currentMoney < 50000 then
-                            print("เงินไม่พอแล้ว โดนสคริปต์ Upgrade ดึงเงินไปก่อน! ข้ามการซื้อบัพรอบนี้")
                             return -- ยกเลิกการกดปุ่ม UI
                         end
 
@@ -553,13 +552,7 @@ task.spawn(function()
                                 for _, child in pairs(unitListItem.Unit:GetChildren()) do
                                     if child:FindFirstChild("Container") and child.Container:FindFirstChild("Button") then
                                         
-                                        local uiUnitName = "Unknown Unit"
-                                        if child.Container:FindFirstChild("Holder") and child.Container.Holder:FindFirstChild("Main") and child.Container.Holder.Main:FindFirstChild("UnitName") then
-                                            uiUnitName = child.Container.Holder.Main.UnitName.Text
-                                        end
-
                                         ClickButton(child.Container.Button)
-                                        SendWebhook("⭐ ใส่บัพให้: " .. uiUnitName)
                                         
                                         -- [แก้ปัญหา 1] ย้ายการมาร์คว่าสำเร็จมาไว้ตรงนี้ เพื่อให้แน่ใจว่าได้กดปุ่มไปแล้วจริงๆ
                                         ProcessedUnits.PackATrait[targetUid] = true
@@ -615,11 +608,9 @@ task.spawn(function()
                                                 -- ถ้าจำนวนตัวละครบนบอร์ดเพิ่มขึ้น = วางสำเร็จ!
                                                 if #workspace.Units:GetChildren() > unitsBefore then
                                                     placedSuccessfully = true
-                                                    SendWebhook("📦 วางตัวละครใหม่สำเร็จ เตรียมใส่บัพในลูปถัดไป: " .. unitName)
                                                 else
                                                     -- ถ่ายังวางไม่ลง ให้บวกเลขแล้วลองวนลูปวางใหม่
                                                     retryCount = retryCount + 1
-                                                    print("วาง " .. unitName .. " ไม่ติด! สุ่มจุดวางใหม่ รอบที่ " .. retryCount)
                                                 end
                                             end
                                             
