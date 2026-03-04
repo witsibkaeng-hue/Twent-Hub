@@ -221,7 +221,6 @@ Tabs.Webhook:AddInput("WebURL", {
 })
 
 Fluent:Notify({ Title = "REAPER-X V22", Content = "ระบบพร้อมทำงาน (ปลอดภัยขั้นสุด)!", Duration = 5 })
-task.wait(5)
 ---------------------------------------------------------------------------
 -- [3] Helper Functions
 ---------------------------------------------------------------------------
@@ -237,6 +236,65 @@ local function GetMoney()
     return tonumber(cleanText) or 0
 end
 
+local function GetEndMoney()
+    local endScreen = LocalPlayer.PlayerGui:FindFirstChild("EndScreen")
+    if endScreen and endScreen.Enabled then
+        local success, text = pcall(function() return endScreen.Holder.Main.StageStatistics.MoneyEarned.Amount.Text end)
+        if success and text then
+            local cleanText = string.gsub(text, "[^%d]", "")
+            return tonumber(cleanText) or 0
+        end
+    end
+    return 0
+end
+
+local function GetEndTime()
+    local endScreen = LocalPlayer.PlayerGui:FindFirstChild("EndScreen")
+    if endScreen and endScreen.Enabled then
+        local success, text = pcall(function() return endScreen.Holder.Main.StageStatistics.PlayTime.Amount.Text end)
+        if success and text then
+            local minutes, seconds = string.match(text, "(%d+):(%d+)")
+            if minutes and seconds then
+                return tonumber(minutes) * 60 + tonumber(seconds)
+            end
+        end
+    end
+    return 0
+end
+
+local function GetEndTakedowns()
+    local endScreen = LocalPlayer.PlayerGui:FindFirstChild("EndScreen")
+    if endScreen and endScreen.Enabled then
+        local success, text = pcall(function() return endScreen.Holder.Main.StageStatistics.Takedowns.Amount.Text end)
+        if success and text then
+            return tonumber(text) or 0
+        end
+    end
+    return 0
+end
+
+local function GetEndDMG()
+    local endScreen = LocalPlayer.PlayerGui:FindFirstChild("EndScreen")
+    if endScreen and endScreen.Enabled then
+        local success, text = pcall(function() return endScreen.Holder.Main.StageStatistics.Damage.Amount.Text end)
+        if success and text then
+            local cleanText = string.gsub(text, "[^%d]", "")
+            return tonumber(cleanText) or 0
+        end
+    end
+    return 0
+end
+
+local function GetEndWaves()
+    local endScreen = LocalPlayer.PlayerGui:FindFirstChild("EndScreen")
+    if endScreen and endScreen.Enabled then
+        local success, text = pcall(function() return endScreen.Holder.Main.StageStatistics.Waves.Amount.Text end)
+        if success and text then
+            return tonumber(text) or 0
+        end
+    end
+    return 0
+end
 local function Interact(prompt)
     if prompt and prompt:IsA("ProximityPrompt") then fireproximityprompt(prompt, 1) end
 end
@@ -419,9 +477,7 @@ task.spawn(function()
 
         -- [ อัปเดต ] ลอจิกรอจบเกมและกดข้าม Rewards
         if isEndScreenOpen or isRewardsOpen then
-            if currentWave < 150 then
-                SendWebhook("💀 ฐานแตกที่ Wave: " .. currentWave .. " กำลังเริ่มรอบใหม่...")
-            end
+           
             ResetData()
             
            if isRewardsOpen then
@@ -444,6 +500,18 @@ task.spawn(function()
             
             task.wait(1)
             if endScreen then
+                 if currentWave < 150 then
+                    local myFields = {
+                { ["name"] = "👨‍🚀 Player", ["value"] = LocalPlayer.Name, ["inline"] = true },
+                { ["name"] = "💰 Final Money", ["value"] = tostring(GetEndMoney()), ["inline"] = true },
+                { ["name"] = "🌊 Cleared Wave", ["value"] = tostring(GetEndWaves()), ["inline"] = true },
+                { ["name"] = "⏱️ Play Time", ["value"] = tostring(GetEndTime()), ["inline"] = true },
+                { ["name"] = "⚔️ Takedowns", ["value"] = tostring(GetEndTakedowns()), ["inline"] = true },
+                { ["name"] = "💥 Total Damage", ["value"] = tostring(GetEndDMG()), ["inline"] = true }
+            }
+            -- สั่งยิง Webhook (สีแดง 15548997)
+            SendWebhook("👑 MATCH FINISHED!", "บอททำงานเสร็จสิ้น กำลังเริ่มรอบใหม่...", 15548997, myFields)
+            end
                 pcall(function() ClickButton(endScreen.Holder.Buttons.Retry.Button) end)
             end
             task.wait(3)
@@ -673,3 +741,9 @@ task.spawn(function()
         end
     end
 end)
+-- game:GetService("Players").LocalPlayer.PlayerGui.HUD.Map.SessionTimer.Label
+-- game:GetService("Players").LocalPlayer.PlayerGui.EndScreen.Holder.Main.StageStatistics.MoneyEarned.Amount
+-- game:GetService("Players").LocalPlayer.PlayerGui.EndScreen.Holder.Main.StageStatistics.PlayTime.Amount
+-- game:GetService("Players").LocalPlayer.PlayerGui.EndScreen.Holder.Main.StageStatistics.Takedowns.Amount
+-- game:GetService("Players").LocalPlayer.PlayerGui.EndScreen.Holder.Main.StageStatistics.TotalDamage.Amount
+-- game:GetService("Players").LocalPlayer.PlayerGui.EndScreen.Holder.Main.StageStatistics.WavesCompleted.Amount
